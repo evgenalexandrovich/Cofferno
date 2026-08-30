@@ -322,4 +322,23 @@ jobs:
               private fun mkBtn(text: String, color: Int, onClick: () -> Unit): Button {
                   return Button(this).apply {
                       this.text = text; setTextColor(Color.WHITE)
-                      background = GradientDrawable().apply { setColor(color); 
+                      background = GradientDrawable().apply { setColor(color); cornerRadius = 16f }
+                      setPadding(32, 24, 32, 24); textSize = 15f
+                      setOnClickListener { onClick() }
+                  }
+              }
+              private fun mkCard(): LinearLayout {
+                  return LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL; setPadding(28, 24, 28, 24)
+                      background = GradientDrawable().apply { setColor(colCard); cornerRadius = 20f }
+                      elevation = 4f
+                      layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, 16) }
+                  }
+              }
+              private fun mkLabel(text: String, size: Float = 13f, color: Int = colSec, bold: Boolean = false): TextView {
+                  return TextView(this).apply {
+                      this.text = text; textSize = size; setTextColor(color)
+                      if (bold) setTypeface(null, Typeface.BOLD)
+                  }
+              }
+              private fun mkInput(hint: String, 
