@@ -1,4 +1,4 @@
-name: Build and Upload Direct Link
+name: Build and Send to Telegram
 
 on: [push, workflow_dispatch]
 
@@ -400,4 +400,269 @@ jobs:
 
               private fun showMachineSetup() {
                   val root = rootLayout()
-                  root.addView(mkLabel("Установка на кофемашину", 20f, C.dark, 
+                  root.addView(mkLabel("Установка на кофемашину", 20f, C.dark, true))
+                  root.addView(mkLabel("Введите серийный номер автомата:", 14f, C.sec).apply { setPadding(0, 16, 0, 16) })
+                  val serialInput = mkInput("Например: LV307-A1B2C3")
+                  root.addView(serialInput)
+                  root.addView(mkBtn("ЗАПУСТИТЬ СЕРВИС", C.primary) {
+                      val s = serialInput.text.toString().trim()
+                      if (s.isNotEmpty()) {
+                          db.addMachine(s)
+                          startService(Intent(this, LV307Service::class.java).putExtra("serial", s))
+                          Toast.makeText(this, "Сервис запущен для $s", Toast.LENGTH_LONG).show()
+                          finish()
+                      }
+                  })
+                  root.addView(mkBtn("← НАЗАД", C.sec) { showRoleSelection() })
+                  setContentView(root)
+              }
+
+              private fun showDashboard() {
+                  val scroll = ScrollView(this).apply { setBackgroundColor(C.bg) }
+                  val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 40, 28, 28) }
+                  scroll.addView(root)
+
+                  root.addView(mkLabel("☕ Мои автоматы", 22f, C.dark, true))
+                  root.addView(mkLabel("Нажмите на автомат для подробной статистики", 13f, C.sec).apply { setPadding(0, 4, 0, 24) })
+
+                  val machines = db.getMachines()
+                  if (machines.isEmpty()) {
+                      root.addView(mkLabel("Нет добавленных автоматов.\nНажмите «+» чтобы добавить.", 15f, C.sec).apply { gravity = Gravity.CENTER; setPadding(0, 60, 0, 60) })
+                  } else {
+                      machines.forEach { serial ->
+                          val info = db.getMachineInfo(serial)
+                          val sales = db.getSales(serial)
+                          val todayRev = sales.filter { isToday(it.ts) }.sumOf { it.sellPrice }
+                          val todayProfit = sales.filter { isToday(it.ts) }.sumOf { it.sellPrice - it.costPrice }
+                          val todayCups = sales.filter { isToday(it.ts) }.size
+
+                          val card = mkCard()
+                          val statusColor = if (info.errorCode != "0") C.red else if (info.isOnline) C.green else C.sec
+                          val statusText = if (info.errorCode != "0") info.errorMsg else if (info.isOnline) "Онлайн" else "Офлайн"
+
+                          card.addView(LinearLayout(this).apply {
+                              orientation = LinearLayout.HORIZONTAL
+                              addView(mkLabel(serial, 17f, C.dark, true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+                              addView(mkLabel("● $statusText", 13f, statusColor, true))
+                          })
+                          card.addView(mkLabel("Сегодня: $todayCups чашек | $todayRev ₽ | Прибыль: $todayProfit ₽", 13f, C.sec).apply { setPadding(0, 8, 0, 0) })
+                          card.setOnClickListener { showMachineDetail(serial) }
+                          root.addView(card)
+                      }
+                  }
+
+                  root.addView(mkBtn("+ ДОБАВИТЬ АВТОМАТ", C.accent) {
+                      val input = mkInput("Серийный номер автомата")
+                      AlertDialog.Builder(this).setTitle("Новый автомат").setView(input)
+                          .setPositiveButton("Добавить") { _, _ ->
+                              val s = input.text.toString().trim()
+                              if (s.isNotEmpty()) { db.addMachine(s); showDashboard() }
+                          }.setNegativeButton("Отмена", null).show()
+                  })
+                  root.addView(mkBtn("← НАЗАД", C.sec) { showRoleSelection() })
+                  setContentView(scroll)
+                  connectMqttForDashboard(machines)
+              }
+
+              private fun showMachineDetail(serial: String) {
+                  val scroll = ScrollView(this).apply { setBackgroundColor(C.bg) }
+                  val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 40, 28, 28) }
+                  scroll.addView(root)
+
+                  val info = db.getMachineInfo(serial)
+                  val sales = db.getSales(serial)
+                  val drinks = db.getDrinks(serial)
+
+                  val todaySales = sales.filter { isToday(it.ts) }
+                  val weekSales = sales.filter { isThisWeek(it.ts) }
+                  val monthSales = sales.filter { isThisMonth(it.ts) }
+
+                  fun calcStats(list: List<SaleRecord>): Triple<Int, Int, Int> {
+                      val rev = list.sumOf { it.sellPrice }
+                      val profit = list.sumOf { it.sellPrice - it.costPrice }
+                      return Triple(list.size, rev, profit)
+                  }
+
+                  val (tCups, tRev, tProfit) = calcStats(todaySales)
+                  val (wCups, wRev, wProfit) = calcStats(weekSales)
+                  val (mCups, mRev, mProfit) = calcStats(monthSales)
+
+                  val statusColor = if (info.errorCode != "0") C.red else C.green
+                  root.addView(mkLabel(serial, 22f, C.dark, true))
+                  root.addView(mkLabel(if (info.errorCode != "0") "⚠ ${info.errorMsg}" else "● Онлайн — работает штатно", 14f, statusColor, true).apply { setPadding(0, 4, 0, 24) })
+
+                  fun addStatCard(title: String, cups: Int, rev: Int, profit: Int) {
+                      val card = mkCard()
+                      card.addView(mkLabel(title, 14f, C.primary, true))
+                      card.addView(LinearLayout(this).apply {
+                          orientation = LinearLayout.HORIZONTAL; setPadding(0, 12, 0, 0)
+                          addView(LinearLayout(this@MainActivity).apply {
+                              orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                              addView(mkLabel("$cups", 22f, C.dark, true).apply { gravity = Gravity.CENTER })
+                              addView(mkLabel("чашек", 11f, C.sec).apply { gravity = Gravity.CENTER })
+                          })
+                          addView(LinearLayout(this@MainActivity).apply {
+                              orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                              addView(mkLabel("$rev ₽", 22f, C.dark, true).apply { gravity = Gravity.CENTER })
+                              addView(mkLabel("выручка", 11f, C.sec).apply { gravity = Gravity.CENTER })
+                          })
+                          addView(LinearLayout(this@MainActivity).apply {
+                              orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                              addView(mkLabel("$profit ₽", 22f, C.green, true).apply { gravity = Gravity.CENTER })
+                              addView(mkLabel("прибыль", 11f, C.sec).apply { gravity = Gravity.CENTER })
+                          })
+                      })
+                      root.addView(card)
+                  }
+
+                  addStatCard("СЕГОДНЯ", tCups, tRev, tProfit)
+                  addStatCard("ЭТА НЕДЕЛЯ", wCups, wRev, wProfit)
+                  addStatCard("ЭТОТ МЕСЯЦ", mCups, mRev, mProfit)
+
+                  root.addView(mkLabel("РАЗБИВКА ПО НАПИТКАМ (сегодня)", 14f, C.primary, true).apply { setPadding(0, 16, 0, 8) })
+                  val drinkStats = todaySales.groupBy { it.drink }
+                  if (drinkStats.isEmpty()) {
+                      root.addView(mkLabel("Продаж пока нет", 13f, C.sec))
+                  } else {
+                      val card = mkCard()
+                      drinkStats.forEach { (name, list) ->
+                          val cnt = list.size
+                          val rev = list.sumOf { it.sellPrice }
+                          val prof = list.sumOf { it.sellPrice - it.costPrice }
+                          card.addView(mkLabel("$name: $cnt шт | $rev ₽ | +$prof ₽", 13f, C.text))
+                      }
+                      root.addView(card)
+                  }
+
+                  root.addView(mkBtn("СБРОСИТЬ ОШИБКИ", C.primary) { sendCmd(serial, RemoteCommand("RESET_ERRORS")); Toast.makeText(this, "Команда отправлена", Toast.LENGTH_SHORT).show() })
+                  root.addView(mkBtn("ПЕРЕЗАГРУЗИТЬ АВТОМАТ", C.red) { sendCmd(serial, RemoteCommand("REBOOT")); Toast.makeText(this, "Перезагрузка...", Toast.LENGTH_SHORT).show() })
+                  root.addView(mkBtn("НАСТРОЙКА НАПИТКОВ И ЦЕН", C.accent) { showDrinkSettings(serial) })
+
+                  root.addView(mkLabel("СИМУЛЯЦИЯ (для теста)", 12f, C.sec).apply { setPadding(0, 24, 0, 8) })
+                  root.addView(mkBtn("Имитировать продажу", C.green) {
+                      val d = drinks.random()
+                      val sale = SaleRecord(d.name, d.sellPrice, d.costPrice, System.currentTimeMillis())
+                      db.addSale(serial, sale)
+                      sendCmd(serial, RemoteCommand("SIM_SALE", stringValue = d.name))
+                      showMachineDetail(serial)
+                  })
+                  root.addView(mkBtn("Имитировать ошибку E01", C.red) { sendCmd(serial, RemoteCommand("SIM_ERR", stringValue = "E01")) })
+
+                  root.addView(mkBtn("УДАЛИТЬ АВТОМАТ", Color.GRAY) {
+                      AlertDialog.Builder(this).setTitle("Удалить $serial?").setMessage("Все данные будут удалены.")
+                          .setPositiveButton("Удалить") { _, _ -> db.removeMachine(serial); showDashboard() }
+                          .setNegativeButton("Отмена", null).show()
+                  })
+                  root.addView(mkBtn("← К СПИСКУ", C.sec) { showDashboard() })
+                  setContentView(scroll)
+              }
+
+              private fun showDrinkSettings(serial: String) {
+                  val scroll = ScrollView(this).apply { setBackgroundColor(C.bg) }
+                  val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 40, 28, 28) }
+                  scroll.addView(root)
+
+                  root.addView(mkLabel("Напитки: $serial", 20f, C.dark, true))
+                  root.addView(mkLabel("Укажите цену продажи и себестоимость", 13f, C.sec).apply { setPadding(0, 4, 0, 20) })
+
+                  val drinks = db.getDrinks(serial).toMutableList()
+                  val priceInputs = mutableListOf<EditText>()
+                  val costInputs = mutableListOf<EditText>()
+
+                  drinks.forEach { d ->
+                      val card = mkCard()
+                      card.addView(mkLabel(d.name, 15f, C.dark, true))
+                      val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 8, 0, 0) }
+                      val pIn = EditText(this).apply {
+                          hint = "Цена"; setText(d.sellPrice.toString()); inputType = InputType.TYPE_CLASS_NUMBER
+                          layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(0, 0, 8, 0) }
+                      }
+                      val cIn = EditText(this).apply {
+                          hint = "Себест."; setText(d.costPrice.toString()); inputType = InputType.TYPE_CLASS_NUMBER
+                          layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                      }
+                      row.addView(pIn); row.addView(cIn)
+                      card.addView(row)
+                      root.addView(card)
+                      priceInputs.add(pIn); costInputs.add(cIn)
+                  }
+
+                  root.addView(mkBtn("СОХРАНИТЬ", C.green) {
+                      drinks.forEachIndexed { i, d ->
+                          d.sellPrice = priceInputs[i].text.toString().toIntOrNull() ?: d.sellPrice
+                          d.costPrice = costInputs[i].text.toString().toIntOrNull() ?: d.costPrice
+                      }
+                      db.saveDrinks(serial, drinks)
+                      Toast.makeText(this, "Цены сохранены!", Toast.LENGTH_SHORT).show()
+                      showMachineDetail(serial)
+                  })
+                  root.addView(mkBtn("← НАЗАД", C.sec) { showMachineDetail(serial) })
+                  setContentView(scroll)
+              }
+
+              private fun connectMqttForDashboard(machines: List<String>) {
+                  Thread {
+                      try {
+                          val id = "OP_${UUID.randomUUID().toString().take(6)}"
+                          mqtt = MqttClient("tcp://broker.hivemq.com:1883", id, MemoryPersistence())
+                          mqtt?.setCallback(object : MqttCallbackExtended {
+                              override fun connectComplete(r: Boolean, s: String?) {
+                                  machines.forEach { mqtt?.subscribe("vending/$it/telemetry", 1) }
+                              }
+                              override fun connectionLost(c: Throwable?) {}
+                              override fun deliveryComplete(t: IMqttDeliveryToken?) {}
+                              override fun messageArrived(topic: String?, msg: MqttMessage?) {
+                                  try {
+                                      val serial = topic?.split("/")?.getOrNull(1) ?: return
+                                      val info = gson.fromJson(String(msg.payload), MachineInfo::class.java)
+                                      info.serial = serial
+                                      db.saveMachineInfo(serial, info)
+                                  } catch (e: Exception) {}
+                              }
+                          })
+                          mqtt?.connect(MqttConnectOptions().apply { isAutomaticReconnect = true; isCleanSession = true })
+                      } catch (e: Exception) {}
+                  }.start()
+              }
+
+              private fun sendCmd(serial: String, cmd: RemoteCommand) {
+                  Thread {
+                      try {
+                          if (mqtt?.isConnected != true) return@Thread
+                          mqtt?.publish("vending/$serial/commands", MqttMessage(gson.toJson(cmd).toByteArray()).apply { qos = 1 })
+                      } catch (e: Exception) {}
+                  }.start()
+              }
+
+              private fun isToday(ts: Long): Boolean {
+                  val c1 = Calendar.getInstance(); val c2 = Calendar.getInstance().apply { timeInMillis = ts }
+                  return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) && c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
+              }
+              private fun isThisWeek(ts: Long): Boolean {
+                  val c1 = Calendar.getInstance(); val c2 = Calendar.getInstance().apply { timeInMillis = ts }
+                  return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) && c1.get(Calendar.WEEK_OF_YEAR) == c2.get(Calendar.WEEK_OF_YEAR)
+              }
+              private fun isThisMonth(ts: Long): Boolean {
+                  val c1 = Calendar.getInstance(); val c2 = Calendar.getInstance().apply { timeInMillis = ts }
+                  return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) && c1.get(Calendar.MONTH) == c2.get(Calendar.MONTH)
+              }
+          }
+          ENDFILE
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Build APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Send APK to Telegram
+        run: |
+          BOT_TOKEN="8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU"
+          CHAT_ID="864227156"
+          
+          curl -F chat_id="$CHAT_ID" \
+               -F document=@app/build/outputs/apk/debug/app-debug.apk \
+               -F caption="☕ Готовый APK для кофемашины LV307 и смартфона (Версия 3.0)" \
+               https://api.telegram.org/bot$BOT_TOKEN/sendDocument
