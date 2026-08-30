@@ -6,8 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -15,80 +14,60 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Generate Project Files
+      - name: Generate Full Project
         run: |
-          # 1. gradle.properties
-          cat << 'EOF' > gradle.properties
+          cat << 'ENDFILE' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
           org.gradle.jvmargs=-Xmx2048m
-          EOF
+          ENDFILE
 
-          # 2. settings.gradle
-          cat << 'EOF' > settings.gradle
+          cat << 'ENDFILE' > settings.gradle
           pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
-          rootProject.name = "CoffeeTelemetry"
+          rootProject.name = "LV307Telemetry"
           include ':app'
-          EOF
+          ENDFILE
 
-          # 3. build.gradle (Root)
-          cat << 'EOF' > build.gradle
+          cat << 'ENDFILE' > build.gradle
           plugins {
               id 'com.android.application' version '8.2.2' apply false
               id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
           }
-          EOF
+          ENDFILE
 
-          # Создаем папки
           mkdir -p app/src/main/java/com/coffee/telemetry
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-          # 4. app/build.gradle
-          cat << 'EOF' > app/build.gradle
+          cat << 'ENDFILE' > app/build.gradle
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
           }
-
           android {
               namespace 'com.coffee.telemetry'
               compileSdk 34
-
               defaultConfig {
                   applicationId "com.coffee.telemetry"
                   minSdk 21
                   targetSdk 34
-                  versionCode 2
-                  versionName "2.0-LV307"
+                  versionCode 3
+                  versionName "3.0"
               }
-
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                  }
-              }
+              buildTypes { release { minifyEnabled false } }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
+              kotlinOptions { jvmTarget = '17' }
           }
-
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -96,425 +75,186 @@ jobs:
               implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
               implementation 'com.google.code.gson:gson:2.10.1'
           }
-          EOF
+          ENDFILE
 
-          # 5. Ресурсы
-          cat << 'EOF' > app/src/main/res/values/styles.xml
+          cat << 'ENDFILE' > app/src/main/res/values/colors.xml
           <resources>
-              <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-                  <item name="colorPrimary">#6F4E37</item>
-                  <item name="colorPrimaryDark">#3E2723</item>
-                  <item name="colorAccent">#D7CCC8</item>
+              <color name="coffee_primary">#6F4E37</color>
+              <color name="coffee_dark">#3E2723</color>
+              <color name="coffee_accent">#FF8F00</color>
+              <color name="success">#2E7D32</color>
+              <color name="error">#D32F2F</color>
+              <color name="bg">#F5F0EB</color>
+              <color name="card">#FFFFFF</color>
+              <color name="text_main">#212121</color>
+              <color name="text_sec">#757575</color>
+          </resources>
+          ENDFILE
+
+          cat << 'ENDFILE' > app/src/main/res/values/styles.xml
+          <resources>
+              <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
+                  <item name="colorPrimary">@color/coffee_primary</item>
+                  <item name="colorPrimaryDark">@color/coffee_dark</item>
+                  <item name="colorAccent">@color/coffee_accent</item>
+                  <item name="android:windowBackground">@color/bg</item>
               </style>
           </resources>
-          EOF
+          ENDFILE
 
-          cat << 'EOF' > app/src/main/res/values/strings.xml
+          cat << 'ENDFILE' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">LV307 Telemetry</string>
           </resources>
-          EOF
+          ENDFILE
 
-          # 6. AndroidManifest.xml
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          cat << 'ENDFILE' > app/src/main/res/drawable/ic_coffee_foreground.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#FFFFFF"
+                  android:pathData="M34,46 L34,74 Q34,82 42,82 L62,82 Q70,82 70,74 L70,46 Z"/>
+              <path android:fillColor="#00000000"
+                  android:strokeColor="#FFFFFF" android:strokeWidth="4"
+                  android:pathData="M70,52 Q84,52 84,62 Q84,72 70,72"/>
+              <path android:fillColor="#00000000"
+                  android:strokeColor="#FFFFFF" android:strokeWidth="3"
+                  android:pathData="M44,40 Q46,32 44,24"/>
+              <path android:fillColor="#00000000"
+                  android:strokeColor="#FFFFFF" android:strokeWidth="3"
+                  android:pathData="M52,38 Q54,28 52,20"/>
+              <path android:fillColor="#00000000"
+                  android:strokeColor="#FFFFFF" android:strokeWidth="3"
+                  android:pathData="M60,40 Q62,32 60,24"/>
+          </vector>
+          ENDFILE
+
+          cat << 'ENDFILE' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/coffee_primary"/>
+              <foreground android:drawable="@drawable/ic_coffee_foreground"/>
+          </adaptive-icon>
+          ENDFILE
+
+          cat << 'ENDFILE' > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/coffee_primary"/>
+              <foreground android:drawable="@drawable/ic_coffee_foreground"/>
+          </adaptive-icon>
+          ENDFILE
+
+          cat << 'ENDFILE' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-              <uses-permission android:name="android.permission.WAKE_LOCK" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
               <application
                   android:allowBackup="true"
-                  android:icon="@android:drawable/ic_dialog_info"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
                   android:label="@string/app_name"
                   android:theme="@style/AppTheme">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
+                  <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-
-                  <service
-                      android:name=".LV307BackgroundService"
-                      android:enabled="true"
-                      android:exported="false" />
-
-                  <receiver
-                      android:name=".BootReceiver"
-                      android:enabled="true"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.BOOT_COMPLETED" />
-                      </intent-filter>
+                  <service android:name=".LV307Service" android:enabled="true" android:exported="false"/>
+                  <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/></intent-filter>
                   </receiver>
               </application>
           </manifest>
-          EOF
+          ENDFILE
 
-          # 7. MainActivity.kt + Service + Models
-          cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
+          cat << 'ENDFILE' > app/src/main/java/com/coffee/telemetry/DataLayer.kt
+          package com.coffee.telemetry
+
+          import android.content.Context
+          import android.content.SharedPreferences
+          import com.google.gson.Gson
+          import com.google.gson.reflect.TypeToken
+
+          data class DrinkConfig(var name: String = "", var sellPrice: Int = 0, var costPrice: Int = 0)
+          data class SaleRecord(var drink: String = "", var sellPrice: Int = 0, var costPrice: Int = 0, var ts: Long = 0L)
+          data class MachineInfo(var serial: String = "", var isOnline: Boolean = false, var errorCode: String = "0", var errorMsg: String = "OK", var lastDrink: String = "—", var lastUpdate: String = "—")
+
+          class Storage(ctx: Context) {
+              private val sp: SharedPreferences = ctx.getSharedPreferences("lv307_data", Context.MODE_PRIVATE)
+              private val gson = Gson()
+
+              fun saveUser(login: String, pass: String) { sp.edit().putString("user_login", login).putString("user_pass", pass).apply() }
+              fun getLogin(): String = sp.getString("user_login", "") ?: ""
+              fun getPass(): String = sp.getString("user_pass", "") ?: ""
+              fun isLoggedIn(): Boolean = getLogin().isNotEmpty()
+
+              fun addMachine(serial: String) {
+                  val list = getMachines().toMutableList()
+                  if (!list.contains(serial)) { list.add(serial); sp.edit().putString("machines", gson.toJson(list)).apply() }
+              }
+              fun removeMachine(serial: String) {
+                  val list = getMachines().toMutableList(); list.remove(serial)
+                  sp.edit().putString("machines", gson.toJson(list)).apply()
+              }
+              fun getMachines(): List<String> {
+                  val json = sp.getString("machines", "[]") ?: "[]"
+                  return gson.fromJson(json, object : TypeToken<List<String>>(){}.type) ?: emptyList()
+              }
+
+              fun saveDrinks(serial: String, drinks: List<DrinkConfig>) { sp.edit().putString("drinks_$serial", gson.toJson(drinks)).apply() }
+              fun getDrinks(serial: String): List<DrinkConfig> {
+                  val json = sp.getString("drinks_$serial", "") ?: ""
+                  if (json.isEmpty()) return defaultDrinks()
+                  return gson.fromJson(json, object : TypeToken<List<DrinkConfig>>(){}.type) ?: defaultDrinks()
+              }
+              fun defaultDrinks(): List<DrinkConfig> = listOf(
+                  DrinkConfig("Эспрессо", 120, 25), DrinkConfig("Американо", 130, 28),
+                  DrinkConfig("Капучино", 160, 35), DrinkConfig("Латте", 170, 38),
+                  DrinkConfig("Горячий шоколад", 150, 30), DrinkConfig("Чай", 100, 15)
+              )
+
+              fun addSale(serial: String, sale: SaleRecord) {
+                  val list = getSales(serial).toMutableList(); list.add(sale)
+                  sp.edit().putString("sales_$serial", gson.toJson(list)).apply()
+              }
+              fun getSales(serial: String): List<SaleRecord> {
+                  val json = sp.getString("sales_$serial", "[]") ?: "[]"
+                  return gson.fromJson(json, object : TypeToken<List<SaleRecord>>(){}.type) ?: emptyList()
+              }
+              fun clearSales(serial: String) { sp.edit().remove("sales_$serial").apply() }
+
+              fun saveMachineInfo(serial: String, info: MachineInfo) { sp.edit().putString("info_$serial", gson.toJson(info)).apply() }
+              fun getMachineInfo(serial: String): MachineInfo {
+                  val json = sp.getString("info_$serial", "") ?: ""
+                  return if (json.isEmpty()) MachineInfo(serial = serial) else gson.fromJson(json, MachineInfo::class.java)
+              }
+          }
+          ENDFILE
+
+          cat << 'ENDFILE' > app/src/main/java/com/coffee/telemetry/LV307Service.kt
           package com.coffee.telemetry
 
           import android.app.Service
           import android.content.BroadcastReceiver
           import android.content.Context
           import android.content.Intent
-          import android.graphics.Color
-          import android.os.Bundle
           import android.os.IBinder
-          import android.view.View
-          import android.widget.*
-          import androidx.appcompat.app.AppCompatActivity
           import com.google.gson.Gson
           import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.text.SimpleDateFormat
           import java.util.*
 
-          // Структура данных автомата LV307
-          data class LV307Telemetry(
-              var machineId: String = "LV307_001",
-              var isOnline: Boolean = true,
-              var totalRevenue: Int = 0,
-              var totalCups: Int = 0,
-              var lastDrinkName: String = "—",
-              var currentError: String = "OK (Работает штатно)",
-              var errorCode: String = "0",
-              var defaultPrice: Int = 150,
-              var lastUpdate: String = ""
-          )
-
-          data class RemoteCommand(
-              val action: String = "", // "RESET_ERRORS", "SET_PRICE", "REBOOT", "SIM_SALE", "SIM_ERR"
-              val value: Int = 0,
-              val stringValue: String = ""
-          )
-
-          // Автозапуск при включении автомата
           class BootReceiver : BroadcastReceiver() {
-              override fun onReceive(context: Context?, intent: Intent?) {
-                  if (Intent.ACTION_BOOT_COMPLETED == intent?.action) {
-                      val serviceIntent = Intent(context, LV307BackgroundService::class.java)
-                      context?.startService(serviceIntent)
-                  }
+              override fun onReceive(ctx: Context?, intent: Intent?) {
+                  if (intent?.action == Intent.ACTION_BOOT_COMPLETED)
+                      ctx?.startService(Intent(ctx, LV307Service::class.java))
               }
           }
 
-          // Фоновая служба для экрана автомата LV307
-          class LV307BackgroundService : Service() {
-              private var mqttClient: MqttClient? = null
-              private val gson = Gson()
-              private val topicTelemetry = "vending/lv307_001/telemetry"
-              private val topicCommands = "vending/lv307_001/commands"
-              private var data = LV307Telemetry()
-
-              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-                  initMqtt()
-                  return START_STICKY
-              }
-
-              override fun onBind(intent: Intent?): IBinder? = null
-
-              private fun initMqtt() {
-                  val brokerUri = "tcp://broker.hivemq.com:1883"
-                  val clientId = "LV307_Dev_" + UUID.randomUUID().toString().substring(0, 6)
-                  Thread {
-                      try {
-                          mqttClient = MqttClient(brokerUri, clientId, MemoryPersistence())
-                          val opts = MqttConnectOptions().apply {
-                              isAutomaticReconnect = true
-                              isCleanSession = true
-                          }
-                          mqttClient?.setCallback(object : MqttCallbackExtended {
-                              override fun connectComplete(reconnect: Boolean, serverURI: String?) {
-                                  mqttClient?.subscribe(topicCommands, 1)
-                                  sendTelemetry()
-                              }
-                              override fun connectionLost(cause: Throwable?) {}
-                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                              override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                  val cmd = gson.fromJson(String(message?.payload ?: byteArrayOf()), RemoteCommand::class.java)
-                                  handleCommand(cmd)
-                              }
-                          })
-                          mqttClient?.connect(opts)
-                      } catch (e: Exception) { e.printStackTrace() }
-                  }.start()
-              }
-
-              private fun handleCommand(cmd: RemoteCommand) {
-                  when (cmd.action) {
-                      "RESET_ERRORS" -> {
-                          data.currentError = "OK (Работает штатно)"
-                          data.errorCode = "0"
-                      }
-                      "SET_PRICE" -> {
-                          data.defaultPrice = cmd.value
-                      }
-                      "SIM_SALE" -> {
-                          data.totalCups += 1
-                          data.totalRevenue += data.defaultPrice
-                          data.lastDrinkName = cmd.stringValue.ifEmpty { "Капучино" }
-                      }
-                      "SIM_ERR" -> {
-                          data.errorCode = cmd.stringValue
-                          data.currentError = when (cmd.stringValue) {
-                              "E01" -> "E01: Нет подачи воды!"
-                              "E02" -> "E02: Ошибка расходомера/помпы"
-                              "E03" -> "E03: Переполнен бункер жмыха!"
-                              "E04" -> "E04: Заклинил заварочный блок!"
-                              "E05" -> "E05: Ошибка нагрева бойлера!"
-                              else -> "Ошибка: ${cmd.stringValue}"
-                          }
-                      }
-                      "REBOOT" -> {
-                          try {
-                              Runtime.getRuntime().exec("reboot")
-                          } catch (e: Exception) {
-                              data.currentError = "Запрос перезагрузки выполнен"
-                          }
-                      }
-                  }
-                  sendTelemetry()
-              }
-
-              private fun sendTelemetry() {
-                  data.lastUpdate = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-                  Thread {
-                      try {
-                          val json = gson.toJson(data)
-                          val msg = MqttMessage(json.toByteArray()).apply { qos = 1 }
-                          mqttClient?.publish(topicTelemetry, msg)
-                      } catch (e: Exception) { e.printStackTrace() }
-                  }.start()
-              }
-          }
-
-          // Главный интерфейс (Выбор режима / Пульт смартфона)
-          class MainActivity : AppCompatActivity() {
-
-              private var mqttClient: MqttClient? = null
-              private val gson = Gson()
-              private val topicTelemetry = "vending/lv307_001/telemetry"
-              private val topicCommands = "vending/lv307_001/commands"
-
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  showRoleSelection()
-              }
-
-              private fun showRoleSelection() {
-                  val layout = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(40, 80, 40, 40)
-                  }
-
-                  val title = TextView(this).apply {
-                      text = "LE Vending LV307\nТелеметрия & Управление"
-                      textSize = 22f
-                      textAlignment = View.TEXT_ALIGNMENT_CENTER
-                      setTextColor(Color.parseColor("#3E2723"))
-                  }
-
-                  val desc = TextView(this).apply {
-                      text = "\nВыберите режим работы:"
-                      textSize = 16f
-                  }
-
-                  val btnMachine = Button(this).apply {
-                      text = "Установить на Кофемашину LV307"
-                      setBackgroundColor(Color.parseColor("#4E342E"))
-                      setTextColor(Color.WHITE)
-                      setOnClickListener { startMachineMode() }
-                  }
-
-                  val btnOperator = Button(this).apply {
-                      text = "Открыть Пульт Оператора (Смартфон)"
-                      setBackgroundColor(Color.parseColor("#2E7D32"))
-                      setTextColor(Color.WHITE)
-                      setOnClickListener { openOperatorDashboard() }
-                  }
-
-                  layout.addView(title)
-                  layout.addView(desc)
-                  layout.addView(btnMachine)
-                  layout.addView(btnOperator)
-                  setContentView(layout)
-              }
-
-              private fun startMachineMode() {
-                  // Запускаем фоновую службу LV307
-                  val intent = Intent(this, LV307BackgroundService::class.java)
-                  startService(intent)
-                  Toast.makeText(this, "Служба LV307 успешно запущена в фоне!", Toast.LENGTH_LONG).show()
-                  
-                  // Скрываем окно, чтобы не мешать клиентам
-                  finish()
-              }
-
-              private fun openOperatorDashboard() {
-                  val scrollView = ScrollView(this)
-                  val layout = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(40, 40, 40, 40)
-                  }
-                  scrollView.addView(layout)
-
-                  val tvHeader = TextView(this).apply {
-                      text = "LV307: Панель Управления\n"
-                      textSize = 20f
-                      setTextColor(Color.BLACK)
-                  }
-
-                  val tvData = TextView(this).apply {
-                      text = "Подключение к автомату..."
-                      textSize = 16f
-                      setPadding(20, 20, 20, 20)
-                      setBackgroundColor(Color.parseColor("#ECEFF1"))
-                  }
-
-                  val btnReset = Button(this).apply {
-                      text = "СБРОСИТЬ ОШИБКИ"
-                      setBackgroundColor(Color.parseColor("#1976D2"))
-                      setTextColor(Color.WHITE)
-                      setOnClickListener {
-                          sendCommand(RemoteCommand(action = "RESET_ERRORS"))
-                          Toast.makeText(this@MainActivity, "Команда сброса отправлена", Toast.LENGTH_SHORT).show()
-                      }
-                  }
-
-                  val etPrice = EditText(this).apply {
-                      hint = "Новая цена кофе (₽)"
-                      inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                  }
-
-                  val btnSetPrice = Button(this).apply {
-                      text = "Обновить цену напитка"
-                      setOnClickListener {
-                          val p = etPrice.text.toString().toIntOrNull() ?: 150
-                          sendCommand(RemoteCommand(action = "SET_PRICE", value = p))
-                          Toast.makeText(this@MainActivity, "Цена обновлена на $p ₽", Toast.LENGTH_SHORT).show()
-                      }
-                  }
-
-                  val btnReboot = Button(this).apply {
-                      text = "ПЕРЕЗАГРУЗИТЬ АВТОМАТ"
-                      setBackgroundColor(Color.parseColor("#D32F2F"))
-                      setTextColor(Color.WHITE)
-                      setOnClickListener {
-                          sendCommand(RemoteCommand(action = "REBOOT"))
-                          Toast.makeText(this@MainActivity, "Сигнал перезагрузки отправлен", Toast.LENGTH_SHORT).show()
-                      }
-                  }
-
-                  // Блок тестовой симуляции
-                  val tvSimTitle = TextView(this).apply {
-                      text = "\n--- ТЕСТОВЫЕ ДЕЙСТВИЯ (СИМУЛЯЦИЯ) ---"
-                      textSize = 14f
-                  }
-
-                  val btnSimSale = Button(this).apply {
-                      text = "Имитировать продажу (Капучино)"
-                      setOnClickListener {
-                          sendCommand(RemoteCommand(action = "SIM_SALE", stringValue = "Капучино"))
-                      }
-                  }
-
-                  val btnSimE01 = Button(this).apply {
-                      text = "Имитировать Ошибку E01 (Нет воды)"
-                      setOnClickListener {
-                          sendCommand(RemoteCommand(action = "SIM_ERR", stringValue = "E01"))
-                      }
-                  }
-
-                  val btnSimE03 = Button(this).apply {
-                      text = "Имитировать Ошибку E03 (Жмых)"
-                      setOnClickListener {
-                          sendCommand(RemoteCommand(action = "SIM_ERR", stringValue = "E03"))
-                      }
-                  }
-
-                  layout.addView(tvHeader)
-                  layout.addView(tvData)
-                  layout.addView(btnReset)
-                  layout.addView(etPrice)
-                  layout.addView(btnSetPrice)
-                  layout.addView(btnReboot)
-                  layout.addView(tvSimTitle)
-                  layout.addView(btnSimSale)
-                  layout.addView(btnSimE01)
-                  layout.addView(btnSimE03)
-
-                  setContentView(scrollView)
-
-                  // Подключаем мониторинг
-                  connectOperatorMqtt(tvData)
-              }
-
-              private fun connectOperatorMqtt(display: TextView) {
-                  val brokerUri = "tcp://broker.hivemq.com:1883"
-                  val clientId = "LV307_Op_" + UUID.randomUUID().toString().substring(0, 6)
-                  Thread {
-                      try {
-                          val client = MqttClient(brokerUri, clientId, MemoryPersistence())
-                          mqttClient = client
-                          client.setCallback(object : MqttCallbackExtended {
-                              override fun connectComplete(reconnect: Boolean, serverURI: String?) {
-                                  client.subscribe(topicTelemetry, 1)
-                              }
-                              override fun connectionLost(cause: Throwable?) {}
-                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                              override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                  val json = String(message?.payload ?: byteArrayOf())
-                                  val d = gson.fromJson(json, LV307Telemetry::class.java)
-                                  runOnUiThread {
-                                      val statusColor = if (d.errorCode != "0") "#D32F2F" else "#2E7D32"
-                                      display.setTextColor(Color.parseColor(statusColor))
-                                      display.text = "АВТОМАТ: ${d.machineId}\n" +
-                                              "Статус: ${d.currentError}\n" +
-                                              "Код ошибки: ${d.errorCode}\n\n" +
-                                              "ВЫРУЧКА: ${d.totalRevenue} ₽\n" +
-                                              "ПРОДАНО ЧАШЕК: ${d.totalCups}\n" +
-                                              "Последний напиток: ${d.lastDrinkName}\n" +
-                                              "Базовая цена: ${d.defaultPrice} ₽\n" +
-                                              "Обновлено в: ${d.lastUpdate}"
-                                  }
-                              }
-                          })
-                          client.connect(MqttConnectOptions().apply { isAutomaticReconnect = true; isCleanSession = true })
-                      } catch (e: Exception) { e.printStackTrace() }
-                  }.start()
-              }
-
-              private fun sendCommand(cmd: RemoteCommand) {
-                  Thread {
-                      try {
-                          val json = gson.toJson(cmd)
-                          val msg = MqttMessage(json.toByteArray()).apply { qos = 1 }
-                          mqttClient?.publish(topicCommands, msg)
-                      } catch (e: Exception) { e.printStackTrace() }
-                  }.start()
-              }
-          }
-          EOF
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.5'
-
-      - name: Build APK
-        run: gradle assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: LV307-Telemetry-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          class 
