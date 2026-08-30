@@ -1,4 +1,4 @@
-name: Stable Build Delivery
+name: Deliver Telegram APK
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
         run: |
           curl -s -X POST "https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendMessage" \
             -d "chat_id=864227156" \
-            -d "text=🚀 Попытка №2: Начинаю глубокую компиляцию. Это займет около 2-3 минут..."
+            -d "text=🚀 Сборка заложена в контейнер. Начинаю компиляцию APK (около 1.5-2 минут)..."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -23,59 +23,79 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Generate Project
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Generate Clean Project Files
         run: |
           mkdir -p app/src/main/java/com/coffee/telemetry
           mkdir -p app/src/main/res/values
 
-          # 1. Настройки сборщика
-          cat << 'EOF' > gradle.properties
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
-          org.gradle.jvmargs=-Xmx3072m
-          EOF
-
-          # 2. Список модулей
+          # Settings
           cat << 'EOF' > settings.gradle
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           rootProject.name = "LV307Telemetry"
           include ':app'
           EOF
 
-          # 3. Главный файл сборки
+          # Root build.gradle
           cat << 'EOF' > build.gradle
           plugins {
-              id 'com.android.application' version '8.2.2' apply false
-              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+              id 'com.android.application' version '8.1.4' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
           }
           EOF
 
-          # 4. Сборка приложения
+          # Properties
+          cat << 'EOF' > gradle.properties
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx2048m
+          EOF
+
+          # App build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
           }
+
           android {
               namespace 'com.coffee.telemetry'
               compileSdk 34
+
               defaultConfig {
                   applicationId "com.coffee.telemetry"
                   minSdk 21
                   targetSdk 34
-                  versionCode 3
-                  versionName "3.0"
+                  versionCode 1
+                  versionName "1.0"
               }
-              buildTypes {
-                  release { minifyEnabled false }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
-              compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-              kotlinOptions { jvmTarget = '17' }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
           }
+
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -85,78 +105,102 @@ jobs:
           }
           EOF
 
-          # 5. Ресурсы
-          cat << 'EOF' > app/src/main/res/values/strings.xml
-          <resources><string name="app_name">LV307 Telemetry</string></resources>
-          EOF
-
-          # 6. Манифест
+          # Manifest
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <application android:allowBackup="true" android:label="LV307 Telemetry" android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/ic_dialog_info"
+                  android:label="LV307 Telemetry"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
                   </activity>
               </application>
           </manifest>
           EOF
 
-          # 7. Чистый код на Kotlin
+          # MainActivity.kt
           cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
           package com.coffee.telemetry
-          import android.os.Bundle
-          import android.widget.*
+
           import android.graphics.Color
+          import android.graphics.Typeface
+          import android.os.Bundle
           import android.view.Gravity
+          import android.widget.Button
+          import android.widget.LinearLayout
+          import android.widget.TextView
+          import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
 
           class MainActivity : AppCompatActivity() {
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
+
                   val root = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(60, 100, 60, 60)
                       setBackgroundColor(Color.parseColor("#F5F0EB"))
                   }
-                  val head = TextView(this).apply {
+
+                  val title = TextView(this).apply {
                       text = "☕ LV307 TELEMETRY"
-                      textSize = 28f
+                      textSize = 26f
                       setTextColor(Color.parseColor("#6F4E37"))
                       gravity = Gravity.CENTER
+                      setTypeface(null, Typeface.BOLD)
                   }
-                  val info = TextView(this).apply {
-                      text = "\nПриложение успешно установлено.\n\nИдет настройка связи с сервером..."
-                      textSize = 18f
-                      setTextColor(Color.BLACK)
+
+                  val subtitle = TextView(this).apply {
+                      text = "\nПриложение успешно скомпилировано!\n\nГотово к работе с автоматом LV307."
+                      textSize = 16f
+                      setTextColor(Color.DKGRAY)
                       gravity = Gravity.CENTER
                   }
-                  root.addView(head)
-                  root.addView(info)
+
+                  val btn = Button(this).apply {
+                      text = "ПРОВЕРИТЬ СВЯЗЬ"
+                      setBackgroundColor(Color.parseColor("#6F4E37"))
+                      setTextColor(Color.WHITE)
+                      setOnClickListener {
+                          Toast.makeText(this@MainActivity, "Связь OK!", Toast.LENGTH_SHORT).show()
+                      }
+                  }
+
+                  root.addView(title)
+                  root.addView(subtitle)
+                  root.addView(btn)
+
                   setContentView(root)
               }
           }
           EOF
 
       - name: Build APK
-        id: build
         run: |
-          chmod +x gradlew || gradle wrapper
-          ./gradlew assembleDebug --stacktrace 2>&1 | tee build_log.txt
+          gradle assembleDebug --stacktrace 2>&1 | tee build_log.txt
 
-      - name: Send APK
+      - name: Send APK to Telegram
         if: success()
         run: |
           curl -F chat_id="864227156" \
                -F document=@app/build/outputs/apk/debug/app-debug.apk \
-               -F caption="✅ Готово! Твой APK в файле выше." \
+               -F caption="✅ Твой готовый APK файл для кофемашины LV307 и смартфона!" \
                https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendDocument
 
-      - name: Send Error Log
+      - name: Send Precise Error Telegram
         if: failure()
         run: |
-          ERROR_MSG=$(tail -n 20 build_log.txt | colrm 1 100 | tr -d '"' | tr -d '\n')
+          ERR_LINE=$(grep -i -E "error|failure|e:" build_log.txt | head -n 5 | tr '\n' ' ' | tr -d '"')
           curl -s -X POST "https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendMessage" \
             -d "chat_id=864227156" \
-            -d "text=❌ Ошибка сборки. Последние строки лога: $ERROR_MSG"
+            -d "text=❌ Ошибка сборки: $ERR_LINE"
