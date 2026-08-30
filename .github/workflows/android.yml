@@ -17,7 +17,14 @@ jobs:
 
       - name: Generate Project Files
         run: |
-          # 1. settings.gradle
+          # 1. gradle.properties
+          cat << 'EOF' > gradle.properties
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx2048m
+          EOF
+
+          # 2. settings.gradle
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -31,14 +38,13 @@ jobs:
               repositories {
                   google()
                   mavenCentral()
-                  maven { url 'https://repo.eclipse.org/content/repositories/paho-releases/' }
               }
           }
           rootProject.name = "CoffeeTelemetry"
           include ':app'
           EOF
 
-          # 2. Корневой build.gradle
+          # 3. build.gradle (Root)
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.2.2' apply false
@@ -46,10 +52,11 @@ jobs:
           }
           EOF
 
-          # Создаем папки
+          # Создаем структуру папок
           mkdir -p app/src/main/java/com/coffee/telemetry
+          mkdir -p app/src/main/res/values
 
-          # 3. app/build.gradle
+          # 4. app/build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -91,7 +98,20 @@ jobs:
           }
           EOF
 
-          # 4. AndroidManifest.xml
+          # 5. Ресурсы стилей и строк
+          cat << 'EOF' > app/src/main/res/values/styles.xml
+          <resources>
+              <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar" />
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">Coffee Telemetry</string>
+          </resources>
+          EOF
+
+          # 6. AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -100,8 +120,8 @@ jobs:
               <application
                   android:allowBackup="true"
                   android:icon="@android:drawable/ic_dialog_info"
-                  android:label="Coffee Telemetry"
-                  android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
+                  android:label="@string/app_name"
+                  android:theme="@style/AppTheme">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -114,7 +134,7 @@ jobs:
           </manifest>
           EOF
 
-          # 5. MainActivity.kt
+          # 7. MainActivity.kt
           cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
           package com.coffee.telemetry
 
@@ -136,19 +156,22 @@ jobs:
           )
 
           data class Command(
-              val action: String,
+              val action: String = "",
               val value: Int = 0
           )
 
           class MainActivity : AppCompatActivity() {
 
-              private lateinit var mqttClient: MqttClient
+              private var mqttClient: MqttClient? = null
               private val gson = Gson()
               private val topicTelemetry = "coffee/demo_machine_01/telemetry"
               private val topicCommands = "coffee/demo_machine_01/commands"
 
               private var currentData = TelemetryData()
               private var isMachineMode = false
+
+              private var operatorDataTextView: TextView? = null
+              private var machineInfoTextView: TextView? = null
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
@@ -183,6 +206,10 @@ jobs:
                   setContentView(layout)
               }
 
+              private fun updateMachineUI() {
+                  machineInfoTextView?.text = "Выручка: ${currentData.revenue} ₽\nПродано чашек: ${currentData.cups}\nЦена кофе: ${currentData.coffeePrice} ₽\nОшибка: ${currentData.error}\n"
+              }
+
               private fun setupMachineMode() {
                   isMachineMode = true
                   val layout = LinearLayout(this).apply {
@@ -195,19 +222,15 @@ jobs:
                       textSize = 18f
                       setTextColor(Color.GREEN) 
                   }
-                  val infoText = TextView(this).apply { textSize = 16f }
-                  
-                  fun updateUI() {
-                      infoText.text = "Выручка: ${currentData.revenue} ₽\nПродано чашек: ${currentData.cups}\nЦена кофе: ${currentData.coffeePrice} ₽\nОшибка: ${currentData.error}\n"
-                  }
-                  updateUI()
+                  machineInfoTextView = TextView(this).apply { textSize = 16f }
+                  updateMachineUI()
 
                   val btnSell = Button(this).apply {
                       text = "Симуляция: Продать кофе"
                       setOnClickListener {
                           currentData.cups += 1
                           currentData.revenue += currentData.coffeePrice
-                          updateUI()
+                          updateMachineUI()
                           publishTelemetry()
                       }
                   }
@@ -218,19 +241,19 @@ jobs:
                       setTextColor(Color.WHITE)
                       setOnClickListener {
                           currentData.error = "E-01: Нет зерен кофе"
-                          updateUI()
+                          updateMachineUI()
                           publishTelemetry()
                       }
                   }
 
                   layout.addView(statusText)
-                  layout.addView(infoText)
+                  layout.addView(machineInfoTextView)
                   layout.addView(btnSell)
                   layout.addView(btnTriggerError)
                   setContentView(layout)
 
                   initMqtt {
-                      mqttClient.subscribe(topicCommands)
+                      mqttClient?.subscribe(topicCommands, 1)
                   }
               }
 
@@ -242,7 +265,7 @@ jobs:
                   }
 
                   val title = TextView(this).apply { text = "Управление кофемашиной #1\n"; textSize = 18f }
-                  val dataText = TextView(this).apply { text = "Ожидание данных от кофемашины..."; textSize = 16f }
+                  operatorDataTextView = TextView(this).apply { text = "Ожидание данных от кофемашины..."; textSize = 16f }
                   
                   val btnReset = Button(this).apply {
                       text = "Удаленно сбросить ошибку"
@@ -267,72 +290,79 @@ jobs:
                   }
 
                   layout.addView(title)
-                  layout.addView(dataText)
+                  layout.addView(operatorDataTextView)
                   layout.addView(btnReset)
                   layout.addView(priceInput)
                   layout.addView(btnSetPrice)
                   setContentView(layout)
 
                   initMqtt {
-                      mqttClient.subscribe(topicTelemetry)
-                      mqttClient.setCallback(object : MqttCallbackExtended {
-                          override fun connectComplete(reconnect: Boolean, serverURI: String?) {}
-                          override fun connectionLost(cause: Throwable?) {}
-                          override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                          override fun messageArrived(topic: String?, message: MqttMessage?) {
-                              val json = String(message?.payload ?: byteArrayOf())
-                              val data = gson.fromJson(json, TelemetryData::class.java)
-                              runOnUiThread {
-                                  dataText.text = "ДАННЫЕ В РЕАЛЬНОМ ВРЕМЕНИ:\n" +
-                                          "Выручка: ${data.revenue} ₽\n" +
-                                          "Чашек: ${data.cups}\n" +
-                                          "Текущая цена: ${data.coffeePrice} ₽\n" +
-                                          "Статус: ${data.error}\n"
-                                  if (data.error != "Нет ошибок") {
-                                      dataText.setTextColor(Color.RED)
-                                  } else {
-                                      dataText.setTextColor(Color.DKGRAY)
-                                  }
-                              }
-                          }
-                      })
+                      mqttClient?.subscribe(topicTelemetry, 1)
                   }
               }
 
               private fun initMqtt(onConnected: () -> Unit) {
                   val brokerUri = "tcp://broker.hivemq.com:1883"
-                  val clientId = "Client_" + UUID.randomUUID().toString().substring(0, 8)
-                  mqttClient = MqttClient(brokerUri, clientId, MemoryPersistence())
-
+                  val clientId = "CoffeeApp_" + UUID.randomUUID().toString().substring(0, 8)
+                  
                   Thread {
                       try {
+                          val client = MqttClient(brokerUri, clientId, MemoryPersistence())
+                          mqttClient = client
+                          
                           val options = MqttConnectOptions().apply { 
                               isAutomaticReconnect = true 
                               isCleanSession = true 
+                              connectionTimeout = 10
                           }
-                          mqttClient.connect(options)
-                          runOnUiThread { onConnected() }
-
-                          if (isMachineMode) {
-                              mqttClient.setCallback(object : MqttCallbackExtended {
-                                  override fun connectComplete(reconnect: Boolean, serverURI: String?) {}
-                                  override fun connectionLost(cause: Throwable?) {}
-                                  override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                                  override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                      val cmd = gson.fromJson(String(message?.payload ?: byteArrayOf()), Command::class.java)
-                                      runOnUiThread {
-                                          if (cmd.action == "RESET_ERROR") currentData.error = "Нет ошибок"
-                                          if (cmd.action == "SET_PRICE") currentData.coffeePrice = cmd.value
-                                          setupMachineMode()
-                                          publishTelemetry()
-                                      }
+                          
+                          client.setCallback(object : MqttCallbackExtended {
+                              override fun connectComplete(reconnect: Boolean, serverURI: String?) {
+                                  runOnUiThread { onConnected() }
+                              }
+                              override fun connectionLost(cause: Throwable?) {}
+                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                              override fun messageArrived(topic: String?, message: MqttMessage?) {
+                                  val payload = String(message?.payload ?: byteArrayOf())
+                                  runOnUiThread {
+                                      handleIncomingMessage(topic, payload)
                                   }
-                              })
-                          }
+                              }
+                          })
+
+                          client.connect(options)
                       } catch (e: Exception) {
                           e.printStackTrace()
                       }
                   }.start()
+              }
+
+              private fun handleIncomingMessage(topic: String?, payload: String) {
+                  try {
+                      if (topic == topicCommands && isMachineMode) {
+                          val cmd = gson.fromJson(payload, Command::class.java)
+                          if (cmd.action == "RESET_ERROR") currentData.error = "Нет ошибок"
+                          if (cmd.action == "SET_PRICE") currentData.coffeePrice = cmd.value
+                          updateMachineUI()
+                          publishTelemetry()
+                      } else if (topic == topicTelemetry && !isMachineMode) {
+                          val data = gson.fromJson(payload, TelemetryData::class.java)
+                          operatorDataTextView?.apply {
+                              text = "ДАННЫЕ В РЕАЛЬНОМ ВРЕМЕНИ:\n" +
+                                      "Выручка: ${data.revenue} ₽\n" +
+                                      "Чашек: ${data.cups}\n" +
+                                      "Текущая цена: ${data.coffeePrice} ₽\n" +
+                                      "Статус: ${data.error}\n"
+                              if (data.error != "Нет ошибок") {
+                                  setTextColor(Color.RED)
+                              } else {
+                                  setTextColor(Color.DKGRAY)
+                              }
+                          }
+                      }
+                  } catch (e: Exception) {
+                      e.printStackTrace()
+                  }
               }
 
               private fun publishTelemetry() {
@@ -340,7 +370,7 @@ jobs:
                       try {
                           val json = gson.toJson(currentData)
                           val msg = MqttMessage(json.toByteArray()).apply { qos = 1 }
-                          mqttClient.publish(topicTelemetry, msg)
+                          mqttClient?.publish(topicTelemetry, msg)
                       } catch (e: Exception) { e.printStackTrace() }
                   }.start()
               }
@@ -350,7 +380,7 @@ jobs:
                       try {
                           val json = gson.toJson(cmd)
                           val msg = MqttMessage(json.toByteArray()).apply { qos = 1 }
-                          mqttClient.publish(topicCommands, msg)
+                          mqttClient?.publish(topicCommands, msg)
                       } catch (e: Exception) { e.printStackTrace() }
                   }.start()
               }
@@ -363,7 +393,7 @@ jobs:
           gradle-version: '8.5'
 
       - name: Build APK
-        run: gradle assembleDebug
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
