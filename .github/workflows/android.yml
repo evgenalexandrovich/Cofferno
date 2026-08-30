@@ -1,4 +1,4 @@
-name: Deliver Telegram APK
+name: Build Cofferno App
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
         run: |
           curl -s -X POST "https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendMessage" \
             -d "chat_id=864227156" \
-            -d "text=🚀 Сборка заложена в контейнер. Начинаю компиляцию APK (около 1.5-2 минут)..."
+            -d "text=☕ Собираю обновленный Cofferno с новой иконкой! Ожидайте около 1.5-2 минут..."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -28,32 +28,27 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Clean Project Files
+      - name: Generate Project Files
         run: |
           mkdir -p app/src/main/java/com/coffee/telemetry
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-          # Settings
+          # 1. Settings
           cat << 'EOF' > settings.gradle
           pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
-          rootProject.name = "LV307Telemetry"
+          rootProject.name = "Cofferno"
           include ':app'
           EOF
 
-          # Root build.gradle
+          # 2. Build scripts
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.1.4' apply false
@@ -61,14 +56,12 @@ jobs:
           }
           EOF
 
-          # Properties
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
           org.gradle.jvmargs=-Xmx2048m
           EOF
 
-          # App build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -83,8 +76,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 21
                   targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 4
+                  versionName "4.0"
               }
 
               compileOptions {
@@ -105,7 +98,76 @@ jobs:
           }
           EOF
 
-          # Manifest
+          # 3. Resources (Strings & Colors)
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">Cofferno</string>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/colors.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="coffee_dark">#3E2723</color>
+              <color name="coffee_gold">#FFC107</color>
+              <color name="coffee_primary">#6F4E37</color>
+          </resources>
+          EOF
+
+          # 4. Premium Icon Foreground Vector
+          cat << 'EOF' > app/src/main/res/drawable/ic_cofferno_fg.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path
+                  android:fillColor="#FFC107"
+                  android:pathData="M34,46 v22 c0,8 8,14 16,14 h8 c8,0 16,-6 16,-14 V46 H34 z" />
+              <path
+                  android:strokeColor="#FFC107"
+                  android:strokeWidth="4"
+                  android:fillColor="#00000000"
+                  android:pathData="M74,52 h6 c4,0 7,3 7,7 c0,4 -3,7 -7,7 h-6" />
+              <path
+                  android:strokeColor="#FFF8E1"
+                  android:strokeWidth="3"
+                  android:strokeLineCap="round"
+                  android:fillColor="#00000000"
+                  android:pathData="M44,38 c-2,-4 2,-8 0,-12" />
+              <path
+                  android:strokeColor="#FFF8E1"
+                  android:strokeWidth="3"
+                  android:strokeLineCap="round"
+                  android:fillColor="#00000000"
+                  android:pathData="M54,36 c-2,-4 2,-8 0,-12" />
+              <path
+                  android:strokeColor="#FFF8E1"
+                  android:strokeWidth="3"
+                  android:strokeLineCap="round"
+                  android:fillColor="#00000000"
+                  android:pathData="M64,38 c-2,-4 2,-8 0,-12" />
+          </vector>
+          EOF
+
+          # 5. Adaptive Icon Configs
+          cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/coffee_dark"/>
+              <foreground android:drawable="@drawable/ic_cofferno_fg"/>
+          </adaptive-icon>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/coffee_dark"/>
+              <foreground android:drawable="@drawable/ic_cofferno_fg"/>
+          </adaptive-icon>
+          EOF
+
+          # 6. AndroidManifest
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -113,8 +175,9 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <application
                   android:allowBackup="true"
-                  android:icon="@android:drawable/ic_dialog_info"
-                  android:label="LV307 Telemetry"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:label="@string/app_name"
                   android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity
                       android:name=".MainActivity"
@@ -128,7 +191,7 @@ jobs:
           </manifest>
           EOF
 
-          # MainActivity.kt
+          # 7. MainActivity
           cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
           package com.coffee.telemetry
 
@@ -153,26 +216,26 @@ jobs:
                   }
 
                   val title = TextView(this).apply {
-                      text = "☕ LV307 TELEMETRY"
-                      textSize = 26f
-                      setTextColor(Color.parseColor("#6F4E37"))
+                      text = "☕ Cofferno"
+                      textSize = 32f
+                      setTextColor(Color.parseColor("#3E2723"))
                       gravity = Gravity.CENTER
                       setTypeface(null, Typeface.BOLD)
                   }
 
                   val subtitle = TextView(this).apply {
-                      text = "\nПриложение успешно скомпилировано!\n\nГотово к работе с автоматом LV307."
-                      textSize = 16f
+                      text = "\nСистема телеметрии & управления кофемашинами LV307\n\nВерсия 4.0 (Cofferno)"
+                      textSize = 15f
                       setTextColor(Color.DKGRAY)
                       gravity = Gravity.CENTER
                   }
 
                   val btn = Button(this).apply {
-                      text = "ПРОВЕРИТЬ СВЯЗЬ"
+                      text = "ОТКРЫТЬ ПУЛЬТ ОПЕРАТОРА"
                       setBackgroundColor(Color.parseColor("#6F4E37"))
                       setTextColor(Color.WHITE)
                       setOnClickListener {
-                          Toast.makeText(this@MainActivity, "Связь OK!", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this@MainActivity, "Cofferno подключено!", Toast.LENGTH_SHORT).show()
                       }
                   }
 
@@ -194,10 +257,10 @@ jobs:
         run: |
           curl -F chat_id="864227156" \
                -F document=@app/build/outputs/apk/debug/app-debug.apk \
-               -F caption="✅ Твой готовый APK файл для кофемашины LV307 и смартфона!" \
+               -F caption="☕ Cofferno v4.0 с новой премиум-иконкой готова к установке!" \
                https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendDocument
 
-      - name: Send Precise Error Telegram
+      - name: Send Error Telegram
         if: failure()
         run: |
           ERR_LINE=$(grep -i -E "error|failure|e:" build_log.txt | head -n 5 | tr '\n' ' ' | tr -d '"')
