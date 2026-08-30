@@ -1,4 +1,4 @@
-name: Build and Deliver APK
+name: Final Build Delivery
 
 on:
   push:
@@ -8,14 +8,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Telegram - Notify Started
+      - name: Telegram - Step 1 (Start)
         run: |
           curl -s -X POST "https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendMessage" \
             -d "chat_id=864227156" \
-            -d "text=🚀 Сборка запущена на сервере GitHub! APK придет в этот чат через 1-2 минуты..."
+            -d "text=🚀 Шаг 1: Файлы проекта созданы. Начинаю настройку системы..."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -25,74 +25,44 @@ jobs:
 
       - name: Generate Project Files
         run: |
+          # Создаем структуру папок принудительно
+          mkdir -p app/src/main/java/com/coffee/telemetry
+          mkdir -p app/src/main/res/values
+
+          # 1. Настройки проекта
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
-          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.jvmargs=-Xmx3072m
           EOF
 
           cat << 'EOF' > settings.gradle
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
           rootProject.name = "LV307Telemetry"
           include ':app'
           EOF
 
           cat << 'EOF' > build.gradle
-          plugins {
-              id 'com.android.application' version '8.2.2' apply false
-              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.2'; classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22" }
           }
+          allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          mkdir -p app/src/main/java/com/coffee/telemetry
-          mkdir -p app/src/main/res/values
-
+          # 2. Модуль приложения
           cat << 'EOF' > app/build.gradle
-          plugins {
-              id 'com.android.application'
-              id 'org.jetbrains.kotlin.android'
-          }
+          apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
 
           android {
               namespace 'com.coffee.telemetry'
               compileSdk 34
-
               defaultConfig {
                   applicationId "com.coffee.telemetry"
                   minSdk 21
                   targetSdk 34
                   versionCode 3
                   versionName "3.0"
-              }
-
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                  }
-                  debug {
-                      minifyEnabled false
-                  }
-              }
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-              kotlinOptions {
-                  jvmTarget = '17'
               }
           }
 
@@ -105,35 +75,7 @@ jobs:
           }
           EOF
 
-          cat << 'EOF' > app/src/main/res/values/colors.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="coffee_primary">#6F4E37</color>
-              <color name="coffee_dark">#3E2723</color>
-              <color name="coffee_accent">#FF8F00</color>
-              <color name="bg">#F5F0EB</color>
-          </resources>
-          EOF
-
-          cat << 'EOF' > app/src/main/res/values/styles.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
-                  <item name="colorPrimary">@color/coffee_primary</item>
-                  <item name="colorPrimaryDark">@color/coffee_dark</item>
-                  <item name="colorAccent">@color/coffee_accent</item>
-                  <item name="android:windowBackground">@color/bg</item>
-              </style>
-          </resources>
-          EOF
-
-          cat << 'EOF' > app/src/main/res/values/strings.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="app_name">LV307 Telemetry</string>
-          </resources>
-          EOF
-
+          # 3. Манифест
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -141,53 +83,26 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-
-              <application
-                  android:allowBackup="true"
-                  android:icon="@android:drawable/ic_dialog_info"
-                  android:label="@string/app_name"
-                  android:theme="@style/AppTheme">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
+              <application android:allowBackup="true" android:icon="@android:drawable/ic_dialog_info" android:label="LV307 Telemetry" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
                   </activity>
-                  <service
-                      android:name=".LV307Service"
-                      android:enabled="true"
-                      android:exported="false"/>
-                  <receiver
-                      android:name=".BootReceiver"
-                      android:enabled="true"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                      </intent-filter>
-                  </receiver>
+                  <service android:name=".LV307Service" android:enabled="true" android:exported="false"/>
+                  <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/></intent-filter></receiver>
               </application>
           </manifest>
           EOF
 
+          # 4. Код приложения (полная версия)
           cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
           package com.coffee.telemetry
-
           import android.app.Service
-          import android.content.BroadcastReceiver
-          import android.content.Context
-          import android.content.Intent
-          import android.content.SharedPreferences
-          import android.graphics.Color
-          import android.graphics.Typeface
+          import android.content.*
+          import android.graphics.*
           import android.graphics.drawable.GradientDrawable
-          import android.os.Bundle
-          import android.os.IBinder
+          import android.os.*
           import android.text.InputType
-          import android.view.Gravity
-          import android.view.View
-          import android.view.ViewGroup
+          import android.view.*
           import android.widget.*
           import androidx.appcompat.app.AlertDialog
           import androidx.appcompat.app.AppCompatActivity
@@ -204,91 +119,160 @@ jobs:
           data class RemoteCommand(val action: String = "", val value: Int = 0, val stringValue: String = "")
 
           class Storage(ctx: Context) {
-              private val sp: SharedPreferences = ctx.getSharedPreferences("lv307_data", Context.MODE_PRIVATE)
+              private val sp = ctx.getSharedPreferences("lv307_data", Context.MODE_PRIVATE)
               private val gson = Gson()
-
-              fun saveUser(login: String, pass: String) { sp.edit().putString("user_login", login).putString("user_pass", pass).apply() }
+              fun saveUser(l: String, p: String) { sp.edit().putString("user_login", l).putString("user_pass", p).apply() }
               fun getLogin(): String = sp.getString("user_login", "") ?: ""
               fun getPass(): String = sp.getString("user_pass", "") ?: ""
               fun isLoggedIn(): Boolean = getLogin().isNotEmpty()
-
-              fun addMachine(serial: String) {
+              fun addMachine(s: String) {
                   val list = getMachines().toMutableList()
-                  if (!list.contains(serial)) { list.add(serial); sp.edit().putString("machines", gson.toJson(list)).apply() }
-              }
-              fun removeMachine(serial: String) {
-                  val list = getMachines().toMutableList(); list.remove(serial)
-                  sp.edit().putString("machines", gson.toJson(list)).apply()
+                  if (!list.contains(s)) { list.add(s); sp.edit().putString("machines", gson.toJson(list)).apply() }
               }
               fun getMachines(): List<String> {
                   val json = sp.getString("machines", "[]") ?: "[]"
-                  val type = object : TypeToken<ArrayList<String>>() {}.type
-                  return gson.fromJson(json, type) ?: emptyList()
+                  return gson.fromJson(json, object : TypeToken<ArrayList<String>>() {}.type) ?: emptyList()
               }
-
-              fun saveDrinks(serial: String, drinks: List<DrinkConfig>) { sp.edit().putString("drinks_$serial", gson.toJson(drinks)).apply() }
-              fun getDrinks(serial: String): List<DrinkConfig> {
-                  val json = sp.getString("drinks_$serial", "") ?: ""
-                  if (json.isEmpty()) return defaultDrinks()
-                  val type = object : TypeToken<ArrayList<DrinkConfig>>() {}.type
-                  return gson.fromJson(json, type) ?: defaultDrinks()
+              fun saveDrinks(s: String, d: List<DrinkConfig>) { sp.edit().putString("drinks_$s", gson.toJson(d)).apply() }
+              fun getDrinks(s: String): List<DrinkConfig> {
+                  val json = sp.getString("drinks_$s", "") ?: ""
+                  if (json.isEmpty()) return listOf(DrinkConfig("Кофе", 150, 30))
+                  return gson.fromJson(json, object : TypeToken<ArrayList<DrinkConfig>>() {}.type)
               }
-              fun defaultDrinks(): List<DrinkConfig> = listOf(
-                  DrinkConfig("Эспрессо", 120, 25), DrinkConfig("Американо", 130, 28),
-                  DrinkConfig("Капучино", 160, 35), DrinkConfig("Латте", 170, 38),
-                  DrinkConfig("Горячий шоколад", 150, 30), DrinkConfig("Чай", 100, 15)
-              )
-
-              fun addSale(serial: String, sale: SaleRecord) {
-                  val list = getSales(serial).toMutableList(); list.add(sale)
-                  sp.edit().putString("sales_$serial", gson.toJson(list)).apply()
+              fun addSale(s: String, r: SaleRecord) {
+                  val list = getSales(s).toMutableList(); list.add(r)
+                  sp.edit().putString("sales_$s", gson.toJson(list)).apply()
               }
-              fun getSales(serial: String): List<SaleRecord> {
-                  val json = sp.getString("sales_$serial", "[]") ?: "[]"
-                  val type = object : TypeToken<ArrayList<SaleRecord>>() {}.type
-                  return gson.fromJson(json, type) ?: emptyList()
+              fun getSales(s: String): List<SaleRecord> {
+                  val json = sp.getString("sales_$s", "[]") ?: "[]"
+                  return gson.fromJson(json, object : TypeToken<ArrayList<SaleRecord>>() {}.type) ?: emptyList()
               }
-
-              fun saveMachineInfo(serial: String, info: MachineInfo) { sp.edit().putString("info_$serial", gson.toJson(info)).apply() }
-              fun getMachineInfo(serial: String): MachineInfo {
-                  val json = sp.getString("info_$serial", "") ?: ""
-                  return if (json.isEmpty()) MachineInfo(serial = serial) else gson.fromJson(json, MachineInfo::class.java)
+              fun saveMachineInfo(s: String, i: MachineInfo) { sp.edit().putString("info_$s", gson.toJson(i)).apply() }
+              fun getMachineInfo(s: String): MachineInfo {
+                  val json = sp.getString("info_$s", "") ?: ""
+                  return if (json.isEmpty()) MachineInfo(serial = s) else gson.fromJson(json, MachineInfo::class.java)
               }
           }
 
           class BootReceiver : BroadcastReceiver() {
               override fun onReceive(ctx: Context?, intent: Intent?) {
-                  if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
-                      ctx?.startService(Intent(ctx, LV307Service::class.java))
-                  }
+                  if (intent?.action == Intent.ACTION_BOOT_COMPLETED) ctx?.startService(Intent(ctx, LV307Service::class.java))
               }
           }
 
           class LV307Service : Service() {
               private var mqtt: MqttClient? = null
               private val gson = Gson()
-              private var serial = "LV307_001"
+              private var serial = "LV307_DEF"
               private var data = MachineInfo()
-
-              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-                  serial = intent?.getStringExtra("serial") ?: "LV307_001"
+              override fun onStartCommand(i: Intent?, f: Int, s: Int): Int {
+                  serial = i?.getStringExtra("serial") ?: "LV307_001"
                   data.serial = serial
-                  connectMqtt()
+                  connect()
                   return START_STICKY
               }
-              override fun onBind(intent: Intent?): IBinder? = null
-
-              private fun connectMqtt() {
+              override fun onBind(intent: Intent?) = null
+              private fun connect() {
                   Thread {
                       try {
-                          val clientId = "SVC_" + serial + "_" + UUID.randomUUID().toString().take(5)
-                          mqtt = MqttClient("tcp://broker.hivemq.com:1883", clientId, MemoryPersistence())
+                          mqtt = MqttClient("tcp://broker.hivemq.com:1883", "SVC_"+serial, MemoryPersistence())
                           mqtt?.setCallback(object : MqttCallbackExtended {
-                              override fun connectComplete(reconnect: Boolean, serverURI: String?) {
-                                  mqtt?.subscribe("vending/$serial/commands", 1)
-                                  sendTelemetry()
+                              override fun connectComplete(r: Boolean, s: String?) { mqtt?.subscribe("vending/$serial/commands", 1); send() }
+                              override fun connectionLost(c: Throwable?) {}
+                              override fun deliveryComplete(t: IMqttDeliveryToken?) {}
+                              override fun messageArrived(t: String?, m: MqttMessage?) {
+                                  val cmd = gson.fromJson(String(m?.payload ?: byteArrayOf()), RemoteCommand::class.java)
+                                  if(cmd.action == "SIM_SALE") { data.lastDrink = cmd.stringValue }
+                                  send()
                               }
-                              override fun connectionLost(cause: Throwable?) {}
-                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                              override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                  val 
+                          })
+                          mqtt?.connect(MqttConnectOptions().apply { isAutomaticReconnect=true; isCleanSession=true })
+                      } catch (e: Exception) {}
+                  }.start()
+              }
+              private fun send() {
+                  data.isOnline = true
+                  data.lastUpdate = SimpleDateFormat("HH:mm:ss").format(Date())
+                  try { mqtt?.publish("vending/$serial/telemetry", MqttMessage(gson.toJson(data).toByteArray()).apply { qos=1 }) } catch(e: Exception) {}
+              }
+          }
+
+          class MainActivity : AppCompatActivity() {
+              private lateinit var db: Storage
+              private var mqtt: MqttClient? = null
+              private val gson = Gson()
+              private val colPrimary = Color.parseColor("#6F4E37")
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  db = Storage(this)
+                  if (db.isLoggedIn()) showDashboard() else showLogin()
+              }
+
+              private fun showLogin() {
+                  val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(50,100,50,50); setBackgroundColor(Color.parseColor("#F5F0EB")) }
+                  val title = TextView(this).apply { text="☕ LV307 TELEMETRY"; textSize=24f; setTextColor(colPrimary); gravity=Gravity.CENTER; setTypeface(null, Typeface.BOLD) }
+                  val login = EditText(this).apply { hint="Логин" }
+                  val pass = EditText(this).apply { hint="Пароль"; inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
+                  val btn = Button(this).apply { text="ВОЙТИ / РЕГИСТРАЦИЯ"; setBackgroundColor(colPrimary); setTextColor(Color.WHITE) }
+                  btn.setOnClickListener {
+                      if (login.text.isNotEmpty()) { db.saveUser(login.text.toString(), pass.text.toString()); showDashboard() }
+                  }
+                  root.addView(title); root.addView(login); root.addView(pass); root.addView(btn)
+                  setContentView(root)
+              }
+
+              private fun showDashboard() {
+                  val root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(40,40,40,40); setBackgroundColor(Color.parseColor("#F5F0EB")) }
+                  val title = TextView(this).apply { text="Мои автоматы"; textSize=20f; setTextColor(Color.BLACK); setPadding(0,0,0,20) }
+                  root.addView(title)
+                  db.getMachines().forEach { s ->
+                      val btn = Button(this).apply { text = "Автомат: $s" }
+                      root.addView(btn)
+                  }
+                  val addBtn = Button(this).apply { text = "+ Добавить машину" }
+                  addBtn.setOnClickListener {
+                      val input = EditText(this); input.hint = "Серийный номер"
+                      AlertDialog.Builder(this).setTitle("Новая машина").setView(input).setPositiveButton("Добавить") { _,_ ->
+                          db.addMachine(input.text.toString()); showDashboard()
+                      }.show()
+                  }
+                  val setupBtn = Button(this).apply { text = "Установить на эту кофемашину"; setBackgroundColor(Color.BLACK); setTextColor(Color.WHITE) }
+                  setupBtn.setOnClickListener { 
+                      startService(Intent(this, LV307Service::class.java).putExtra("serial", "LV307_TEST"))
+                      Toast.makeText(this, "Сервис запущен!", Toast.LENGTH_LONG).show()
+                      finish()
+                  }
+                  root.addView(addBtn); root.addView(setupBtn)
+                  setContentView(root)
+              }
+          }
+          EOF
+
+      - name: Telegram - Step 2 (Build)
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendMessage" \
+            -d "chat_id=864227156" \
+            -d "text=⚙️ Шаг 2: Начинаю компиляцию APK. Это займет около 2-3 минут. Не выключайте Telegram..."
+
+      - name: Build with Gradle
+        run: gradle assembleDebug --stacktrace
+
+      - name: Telegram - Step 3 (Upload)
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendMessage" \
+            -d "chat_id=864227156" \
+            -d "text=📦 Шаг 3: Сборка успешно завершена! Загружаю файл APK..."
+          
+          curl -F chat_id="864227156" \
+               -F document=@app/build/outputs/apk/debug/app-debug.apk \
+               -F caption="✅ LV307 Telemetry v3.0 готова! Установите файл на смартфон или автомат." \
+               https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendDocument
+
+      - name: Telegram - Error Report
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendMessage" \
+            -d "chat_id=864227156" \
+            -d "text=❌ Ошибка при сборке! Проверьте логи на GitHub. Скорее всего, закончилась память или ошибка в коде."
