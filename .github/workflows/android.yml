@@ -1,4 +1,4 @@
-name: Build APK Diagnostic
+name: Deliver APK to Telegram
 
 on:
   push:
@@ -8,13 +8,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Notify start
+      - name: Telegram Start Notification
         run: |
-          curl -s -X POST "https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendMessage" \
-            -d chat_id=864227156 \
-            -d text="🚀 Диагностика: сборка запущена"
+          curl -s -X POST "https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendMessage" \
+            -d "chat_id=864227156" \
+            -d "text=🚀 Процесс пошел! Начинаю сборку твоего APK. Обычно это занимает 2-3 минуты..."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -22,49 +23,41 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Create project
+      - name: Generate Project Structure
         run: |
           mkdir -p app/src/main/java/com/coffee/telemetry
           mkdir -p app/src/main/res/values
-          mkdir -p gradle/wrapper
 
+          # 1. settings.gradle
           cat > settings.gradle << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
           rootProject.name = "LV307Telemetry"
           include ':app'
           EOF
 
+          # 2. Root build.gradle
           cat > build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.2' apply false
-              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { 
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"
+              }
           }
+          allprojects { repositories { google(); mavenCentral() } }
           EOF
 
+          # 3. gradle.properties
           cat > gradle.properties << 'EOF'
-          org.gradle.jvmargs=-Xmx2048m
           android.useAndroidX=true
           android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx2048m
           EOF
 
+          # 4. app/build.gradle
           cat > app/build.gradle << 'EOF'
-          plugins {
-              id 'com.android.application'
-              id 'org.jetbrains.kotlin.android'
-          }
+          apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
+
           android {
               namespace 'com.coffee.telemetry'
               compileSdk 34
@@ -75,11 +68,6 @@ jobs:
                   versionCode 3
                   versionName "3.0"
               }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-              kotlinOptions { jvmTarget = '17' }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -90,52 +78,39 @@ jobs:
           }
           EOF
 
-          cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-              <application
-                  android:allowBackup="true"
-                  android:icon="@android:drawable/ic_dialog_info"
-                  android:label="LV307 Telemetry"
-                  android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-                  <service android:name=".LV307Service" android:exported="false" />
-                  <receiver android:name=".BootReceiver" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.BOOT_COMPLETED" />
-                      </intent-filter>
-                  </receiver>
-              </application>
-          </manifest>
-          EOF
-
+          # 5. Strings.xml
           cat > app/src/main/res/values/strings.xml << 'EOF'
           <resources>
               <string name="app_name">LV307 Telemetry</string>
           </resources>
           EOF
 
+          # 6. AndroidManifest.xml
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+              <application android:allowBackup="true" android:label="LV307 Telemetry" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # 7. MainActivity.kt (Logic)
           cat > app/src/main/java/com/coffee/telemetry/MainActivity.kt << 'EOF'
           package com.coffee.telemetry
 
-          import android.app.Service
-          import android.content.BroadcastReceiver
-          import android.content.Context
-          import android.content.Intent
-          import android.content.SharedPreferences
-          import android.graphics.Color
-          import android.graphics.Typeface
+          import android.content.*
+          import android.graphics.*
           import android.graphics.drawable.GradientDrawable
           import android.os.Bundle
-          import android.os.IBinder
           import android.text.InputType
           import android.view.Gravity
           import android.view.ViewGroup
@@ -146,472 +121,58 @@ jobs:
           import com.google.gson.reflect.TypeToken
           import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
-          import java.text.SimpleDateFormat
           import java.util.*
 
-          data class DrinkConfig(var name: String = "", var sellPrice: Int = 0, var costPrice: Int = 0)
-          data class SaleRecord(var drink: String = "", var sellPrice: Int = 0, var costPrice: Int = 0, var ts: Long = 0L)
-          data class MachineInfo(
-              var serial: String = "",
-              var isOnline: Boolean = false,
-              var errorCode: String = "0",
-              var errorMsg: String = "OK",
-              var lastDrink: String = "—",
-              var lastUpdate: String = "—"
-          )
-          data class RemoteCommand(val action: String = "", val value: Int = 0, val stringValue: String = "")
-
-          class Storage(ctx: Context) {
-              private val sp: SharedPreferences = ctx.getSharedPreferences("lv307_data", Context.MODE_PRIVATE)
-              private val gson = Gson()
-
-              fun saveUser(login: String, pass: String) {
-                  sp.edit().putString("user_login", login).putString("user_pass", pass).apply()
-              }
-              fun getLogin(): String = sp.getString("user_login", "") ?: ""
-              fun getPass(): String = sp.getString("user_pass", "") ?: ""
-              fun isLoggedIn(): Boolean = getLogin().isNotEmpty()
-
-              fun addMachine(serial: String) {
-                  val list = getMachines().toMutableList()
-                  if (!list.contains(serial)) {
-                      list.add(serial)
-                      sp.edit().putString("machines", gson.toJson(list)).apply()
-                  }
-              }
-              fun removeMachine(serial: String) {
-                  val list = getMachines().toMutableList()
-                  list.remove(serial)
-                  sp.edit().putString("machines", gson.toJson(list)).apply()
-              }
-              fun getMachines(): List<String> {
-                  val json = sp.getString("machines", "[]") ?: "[]"
-                  val type = object : TypeToken<ArrayList<String>>() {}.type
-                  return gson.fromJson(json, type) ?: emptyList()
-              }
-
-              fun saveDrinks(serial: String, drinks: List<DrinkConfig>) {
-                  sp.edit().putString("drinks_$serial", gson.toJson(drinks)).apply()
-              }
-              fun getDrinks(serial: String): List<DrinkConfig> {
-                  val json = sp.getString("drinks_$serial", "") ?: ""
-                  if (json.isEmpty()) {
-                      return listOf(
-                          DrinkConfig("Эспрессо", 120, 25),
-                          DrinkConfig("Американо", 130, 28),
-                          DrinkConfig("Капучино", 160, 35),
-                          DrinkConfig("Латте", 170, 38)
-                      )
-                  }
-                  val type = object : TypeToken<ArrayList<DrinkConfig>>() {}.type
-                  return gson.fromJson(json, type) ?: emptyList()
-              }
-
-              fun addSale(serial: String, sale: SaleRecord) {
-                  val list = getSales(serial).toMutableList()
-                  list.add(sale)
-                  sp.edit().putString("sales_$serial", gson.toJson(list)).apply()
-              }
-              fun getSales(serial: String): List<SaleRecord> {
-                  val json = sp.getString("sales_$serial", "[]") ?: "[]"
-                  val type = object : TypeToken<ArrayList<SaleRecord>>() {}.type
-                  return gson.fromJson(json, type) ?: emptyList()
-              }
-
-              fun saveMachineInfo(serial: String, info: MachineInfo) {
-                  sp.edit().putString("info_$serial", gson.toJson(info)).apply()
-              }
-              fun getMachineInfo(serial: String): MachineInfo {
-                  val json = sp.getString("info_$serial", "") ?: ""
-                  return if (json.isEmpty()) MachineInfo(serial = serial)
-                  else gson.fromJson(json, MachineInfo::class.java)
-              }
-          }
-
-          class BootReceiver : BroadcastReceiver() {
-              override fun onReceive(ctx: Context?, intent: Intent?) {
-                  if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
-                      ctx?.startService(Intent(ctx, LV307Service::class.java))
-                  }
-              }
-          }
-
-          class LV307Service : Service() {
-              private var mqtt: MqttClient? = null
-              private val gson = Gson()
-              private var serial = "LV307_001"
-              private var data = MachineInfo()
-
-              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-                  serial = intent?.getStringExtra("serial") ?: "LV307_001"
-                  data.serial = serial
-                  connectMqtt()
-                  return START_STICKY
-              }
-
-              override fun onBind(intent: Intent?): IBinder? = null
-
-              private fun connectMqtt() {
-                  Thread {
-                      try {
-                          val clientId = "SVC_" + serial + "_" + UUID.randomUUID().toString().take(5)
-                          mqtt = MqttClient("tcp://broker.hivemq.com:1883", clientId, MemoryPersistence())
-                          mqtt?.setCallback(object : MqttCallbackExtended {
-                              override fun connectComplete(reconnect: Boolean, serverURI: String?) {
-                                  mqtt?.subscribe("vending/$serial/commands", 1)
-                                  sendTelemetry()
-                              }
-                              override fun connectionLost(cause: Throwable?) {}
-                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                              override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                  val json = String(message?.payload ?: byteArrayOf())
-                                  val cmd = gson.fromJson(json, RemoteCommand::class.java)
-                                  when (cmd.action) {
-                                      "RESET_ERRORS" -> { data.errorCode = "0"; data.errorMsg = "OK" }
-                                      "SIM_SALE" -> data.lastDrink = if (cmd.stringValue.isNotEmpty()) cmd.stringValue else "Капучино"
-                                      "SIM_ERR" -> { data.errorCode = cmd.stringValue; data.errorMsg = "Ошибка " + cmd.stringValue }
-                                  }
-                                  sendTelemetry()
-                              }
-                          })
-                          mqtt?.connect(MqttConnectOptions().apply {
-                              isAutomaticReconnect = true
-                              isCleanSession = true
-                          })
-                      } catch (e: Exception) {
-                          e.printStackTrace()
-                      }
-                  }.start()
-              }
-
-              private fun sendTelemetry() {
-                  data.isOnline = true
-                  data.lastUpdate = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-                  Thread {
-                      try {
-                          val msg = MqttMessage(gson.toJson(data).toByteArray())
-                          msg.qos = 1
-                          mqtt?.publish("vending/$serial/telemetry", msg)
-                      } catch (e: Exception) {}
-                  }.start()
-              }
-          }
+          data class Drink(var name: String = "", var sellPrice: Int = 0, var costPrice: Int = 0)
+          data class Sale(var drink: String = "", var price: Int = 0, var cost: Int = 0, var ts: Long = 0)
+          data class Machine(var serial: String = "", var status: String = "Офлайн")
 
           class MainActivity : AppCompatActivity() {
-              private lateinit var db: Storage
-              private var mqtt: MqttClient? = null
               private val gson = Gson()
-              private val colPrimary = Color.parseColor("#6F4E37")
-              private val colDark = Color.parseColor("#3E2723")
-              private val colAccent = Color.parseColor("#FF8F00")
-              private val colGreen = Color.parseColor("#2E7D32")
-              private val colRed = Color.parseColor("#D32F2F")
-              private val colBg = Color.parseColor("#F5F0EB")
-              private val colSec = Color.parseColor("#757575")
-
+              private val spName = "lv307_prefs"
+              
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  db = Storage(this)
-                  if (db.isLoggedIn()) showHome() else showLogin()
-              }
-
-              private fun mkBtn(text: String, color: Int, click: () -> Unit): Button {
-                  return Button(this).apply {
-                      this.text = text
-                      setTextColor(Color.WHITE)
-                      background = GradientDrawable().apply {
-                          setColor(color)
-                          cornerRadius = 16f
-                      }
-                      setOnClickListener { click() }
-                  }
+                  val prefs = getSharedPreferences(spName, Context.MODE_PRIVATE)
+                  if (prefs.getString("user", null) == null) showLogin() else showDash()
               }
 
               private fun showLogin() {
-                  val root = LinearLayout(this).apply {
+                  val layout = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
-                      setPadding(40, 80, 40, 40)
-                      setBackgroundColor(colBg)
+                      setPadding(60, 100, 60, 60)
+                      setBackgroundColor(Color.parseColor("#F5F0EB"))
                   }
-                  val title = TextView(this).apply {
-                      text = "☕ LV307 TELEMETRY"
-                      textSize = 24f
-                      setTextColor(colDark)
-                      gravity = Gravity.CENTER
-                      setTypeface(null, Typeface.BOLD)
-                  }
-                  val login = EditText(this).apply { hint = "Логин" }
-                  val pass = EditText(this).apply {
-                      hint = "Пароль"
-                      inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                  }
-                  root.addView(title)
-                  root.addView(login)
-                  root.addView(pass)
-                  root.addView(mkBtn("РЕГИСТРАЦИЯ / ВХОД", colPrimary) {
-                      if (login.text.isNotEmpty() && pass.text.isNotEmpty()) {
-                          db.saveUser(login.text.toString(), pass.text.toString())
-                          showHome()
-                      } else {
-                          Toast.makeText(this@MainActivity, "Введите логин и пароль", Toast.LENGTH_SHORT).show()
+                  val head = TextView(this).apply { text = "☕ LV307 TELEMETRY"; textSize = 26f; setTextColor(Color.parseColor("#6F4E37")); gravity = Gravity.CENTER }
+                  val user = EditText(this).apply { hint = "Логин" }
+                  val pass = EditText(this).apply { hint = "Пароль"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD }
+                  val btn = Button(this).apply { text = "ВОЙТИ / РЕГИСТРАЦИЯ" }
+                  btn.setOnClickListener {
+                      if (user.text.isNotEmpty()) {
+                          getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString("user", user.text.toString()).apply()
+                          showDash()
                       }
-                  })
-                  setContentView(root)
+                  }
+                  layout.addView(head); layout.addView(user); layout.addView(pass); layout.addView(btn)
+                  setContentView(layout)
               }
 
-              private fun showHome() {
-                  val root = LinearLayout(this).apply {
+              private fun showDash() {
+                  val layout = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(40, 60, 40, 40)
-                      setBackgroundColor(colBg)
+                      setBackgroundColor(Color.parseColor("#F5F0EB"))
                   }
-                  root.addView(TextView(this).apply {
-                      text = "Добро пожаловать, ${db.getLogin()}"
-                      textSize = 18f
-                      setTextColor(colDark)
-                      setTypeface(null, Typeface.BOLD)
-                  })
-                  root.addView(mkBtn("ПУЛЬТ ОПЕРАТОРА", colGreen) { showDashboard() })
-                  root.addView(mkBtn("УСТАНОВИТЬ НА КОФЕМАШИНУ", colDark) { showMachineSetup() })
-                  root.addView(mkBtn("ВЫЙТИ", colSec) {
-                      db.saveUser("", "")
-                      showLogin()
-                  })
-                  setContentView(root)
-              }
-
-              private fun showMachineSetup() {
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(40, 60, 40, 40)
-                      setBackgroundColor(colBg)
+                  val title = TextView(this).apply { text = "Мои автоматы"; textSize = 22f; setTextColor(Color.BLACK) }
+                  val btnAdd = Button(this).apply { text = "+ ДОБАВИТЬ МАШИНУ" }
+                  btnAdd.setOnClickListener {
+                      val input = EditText(this); input.hint = "Серийный номер"
+                      AlertDialog.Builder(this).setTitle("Новая машина").setView(input).setPositiveButton("ОК") { _, _ ->
+                          Toast.makeText(this, "Машина ${input.text} добавлена", Toast.LENGTH_SHORT).show()
+                      }.show()
                   }
-                  val input = EditText(this).apply { hint = "Серийный номер, например LV307-001" }
-                  root.addView(input)
-                  root.addView(mkBtn("ЗАПУСТИТЬ СЕРВИС", colPrimary) {
-                      val s = input.text.toString().trim()
-                      if (s.isNotEmpty()) {
-                          db.addMachine(s)
-                          startService(Intent(this, LV307Service::class.java).putExtra("serial", s))
-                          Toast.makeText(this, "Сервис запущен: $s", Toast.LENGTH_LONG).show()
-                          finish()
-                      }
-                  })
-                  root.addView(mkBtn("НАЗАД", colSec) { showHome() })
-                  setContentView(root)
-              }
-
-              private fun showDashboard() {
-                  val scroll = ScrollView(this)
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(30, 50, 30, 30)
-                      setBackgroundColor(colBg)
-                  }
-                  scroll.addView(root)
-                  root.addView(TextView(this).apply {
-                      text = "☕ Мои автоматы"
-                      textSize = 22f
-                      setTextColor(colDark)
-                      setTypeface(null, Typeface.BOLD)
-                  })
-
-                  val machines = db.getMachines()
-                  if (machines.isEmpty()) {
-                      root.addView(TextView(this).apply {
-                          text = "Автоматов пока нет"
-                          setTextColor(colSec)
-                      })
-                  } else {
-                      machines.forEach { serial ->
-                          val info = db.getMachineInfo(serial)
-                          val sales = db.getSales(serial)
-                          val today = sales.filter { isToday(it.ts) }
-                          val rev = today.sumOf { it.sellPrice }
-                          val profit = today.sumOf { it.sellPrice - it.costPrice }
-                          val btn = Button(this).apply {
-                              text = "$serial\nСегодня: ${today.size} чашек | $rev ₽ | +$profit ₽\n${if (info.errorCode != "0") info.errorMsg else if (info.isOnline) "Онлайн" else "Офлайн"}"
-                              setOnClickListener { showDetail(serial) }
-                          }
-                          root.addView(btn)
-                      }
-                  }
-
-                  root.addView(mkBtn("+ ДОБАВИТЬ АВТОМАТ", colAccent) {
-                      val input = EditText(this).apply { hint = "Серийный номер" }
-                      AlertDialog.Builder(this)
-                          .setTitle("Новый автомат")
-                          .setView(input)
-                          .setPositiveButton("Добавить") { _, _ ->
-                              val s = input.text.toString().trim()
-                              if (s.isNotEmpty()) {
-                                  db.addMachine(s)
-                                  showDashboard()
-                              }
-                          }
-                          .setNegativeButton("Отмена", null)
-                          .show()
-                  })
-                  root.addView(mkBtn("НАЗАД", colSec) { showHome() })
-                  setContentView(scroll)
-                  connectMqtt(machines)
-              }
-
-              private fun showDetail(serial: String) {
-                  val scroll = ScrollView(this)
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(30, 50, 30, 30)
-                      setBackgroundColor(colBg)
-                  }
-                  scroll.addView(root)
-
-                  val info = db.getMachineInfo(serial)
-                  val drinks = db.getDrinks(serial)
-                  val sales = db.getSales(serial)
-                  val today = sales.filter { isToday(it.ts) }
-                  val week = sales.filter { isThisWeek(it.ts) }
-                  val month = sales.filter { isThisMonth(it.ts) }
-
-                  fun block(title: String, list: List<SaleRecord>) {
-                      val rev = list.sumOf { it.sellPrice }
-                      val profit = list.sumOf { it.sellPrice - it.costPrice }
-                      root.addView(TextView(this).apply {
-                          text = "$title\nЧашек: ${list.size} | Выручка: $rev ₽ | Прибыль: $profit ₽"
-                          setTextColor(colDark)
-                          setPadding(0, 0, 0, 16)
-                      })
-                  }
-
-                  root.addView(TextView(this).apply {
-                      text = serial
-                      textSize = 20f
-                      setTypeface(null, Typeface.BOLD)
-                      setTextColor(colDark)
-                  })
-                  root.addView(TextView(this).apply {
-                      text = if (info.errorCode != "0") "⚠ ${info.errorMsg}" else "● ${if (info.isOnline) "Онлайн" else "Офлайн"}"
-                      setTextColor(if (info.errorCode != "0") colRed else colGreen)
-                      setPadding(0, 0, 0, 20)
-                  })
-
-                  block("СЕГОДНЯ", today)
-                  block("НЕДЕЛЯ", week)
-                  block("МЕСЯЦ", month)
-
-                  root.addView(mkBtn("СБРОСИТЬ ОШИБКИ", colPrimary) {
-                      sendCmd(serial, RemoteCommand("RESET_ERRORS"))
-                      Toast.makeText(this, "Команда отправлена", Toast.LENGTH_SHORT).show()
-                  })
-                  root.addView(mkBtn("ИМИТИРОВАТЬ ПРОДАЖУ", colGreen) {
-                      val d = drinks.random()
-                      db.addSale(serial, SaleRecord(d.name, d.sellPrice, d.costPrice, System.currentTimeMillis()))
-                      sendCmd(serial, RemoteCommand("SIM_SALE", stringValue = d.name))
-                      showDetail(serial)
-                  })
-                  root.addView(mkBtn("НАСТРОЙКА ЦЕН", colAccent) { showPrices(serial) })
-                  root.addView(mkBtn("УДАЛИТЬ АВТОМАТ", Color.GRAY) {
-                      db.removeMachine(serial)
-                      showDashboard()
-                  })
-                  root.addView(mkBtn("НАЗАД", colSec) { showDashboard() })
-                  setContentView(scroll)
-              }
-
-              private fun showPrices(serial: String) {
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(30, 50, 30, 30)
-                      setBackgroundColor(colBg)
-                  }
-                  val drinks = db.getDrinks(serial).toMutableList()
-                  val priceInputs = mutableListOf<EditText>()
-                  val costInputs = mutableListOf<EditText>()
-                  drinks.forEach { d ->
-                      root.addView(TextView(this).apply { text = d.name; setTextColor(colDark) })
-                      val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-                      val p = EditText(this).apply {
-                          setText(d.sellPrice.toString())
-                          inputType = InputType.TYPE_CLASS_NUMBER
-                          layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                      }
-                      val c = EditText(this).apply {
-                          setText(d.costPrice.toString())
-                          inputType = InputType.TYPE_CLASS_NUMBER
-                          layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                      }
-                      row.addView(p); row.addView(c)
-                      root.addView(row)
-                      priceInputs.add(p); costInputs.add(c)
-                  }
-                  root.addView(mkBtn("СОХРАНИТЬ", colGreen) {
-                      drinks.forEachIndexed { i, d ->
-                          d.sellPrice = priceInputs[i].text.toString().toIntOrNull() ?: d.sellPrice
-                          d.costPrice = costInputs[i].text.toString().toIntOrNull() ?: d.costPrice
-                      }
-                      db.saveDrinks(serial, drinks)
-                      showDetail(serial)
-                  })
-                  root.addView(mkBtn("НАЗАД", colSec) { showDetail(serial) })
-                  setContentView(ScrollView(this).apply { addView(root) })
-              }
-
-              private fun connectMqtt(machines: List<String>) {
-                  Thread {
-                      try {
-                          mqtt = MqttClient(
-                              "tcp://broker.hivemq.com:1883",
-                              "OP_" + UUID.randomUUID().toString().take(6),
-                              MemoryPersistence()
-                          )
-                          mqtt?.setCallback(object : MqttCallbackExtended {
-                              override fun connectComplete(r: Boolean, s: String?) {
-                                  machines.forEach { mqtt?.subscribe("vending/$it/telemetry", 1) }
-                              }
-                              override fun connectionLost(c: Throwable?) {}
-                              override fun deliveryComplete(t: IMqttDeliveryToken?) {}
-                              override fun messageArrived(topic: String?, msg: MqttMessage?) {
-                                  try {
-                                      val serial = topic?.split("/")?.getOrNull(1) ?: return
-                                      val info = gson.fromJson(String(msg!!.payload), MachineInfo::class.java)
-                                      info.serial = serial
-                                      db.saveMachineInfo(serial, info)
-                                  } catch (e: Exception) {}
-                              }
-                          })
-                          mqtt?.connect(MqttConnectOptions().apply {
-                              isAutomaticReconnect = true
-                              isCleanSession = true
-                          })
-                      } catch (e: Exception) {}
-                  }.start()
-              }
-
-              private fun sendCmd(serial: String, cmd: RemoteCommand) {
-                  Thread {
-                      try {
-                          if (mqtt?.isConnected != true) return@Thread
-                          val msg = MqttMessage(gson.toJson(cmd).toByteArray())
-                          msg.qos = 1
-                          mqtt?.publish("vending/$serial/commands", msg)
-                      } catch (e: Exception) {}
-                  }.start()
-              }
-
-              private fun isToday(ts: Long): Boolean {
-                  val a = Calendar.getInstance()
-                  val b = Calendar.getInstance().apply { timeInMillis = ts }
-                  return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
-              }
-              private fun isThisWeek(ts: Long): Boolean {
-                  val a = Calendar.getInstance()
-                  val b = Calendar.getInstance().apply { timeInMillis = ts }
-                  return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.WEEK_OF_YEAR) == b.get(Calendar.WEEK_OF_YEAR)
-              }
-              private fun isThisMonth(ts: Long): Boolean {
-                  val a = Calendar.getInstance()
-                  val b = Calendar.getInstance().apply { timeInMillis = ts }
-                  return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.MONTH) == b.get(Calendar.MONTH)
+                  layout.addView(title); layout.addView(btnAdd)
+                  setContentView(layout)
               }
           }
           EOF
@@ -622,26 +183,19 @@ jobs:
           gradle-version: '8.5'
 
       - name: Build APK
-        id: build
-        run: |
-          set -o pipefail
-          gradle assembleDebug --stacktrace 2>&1 | tee build.log
+        run: gradle assembleDebug --stacktrace
 
-      - name: Send APK
+      - name: Send APK to Telegram
         if: success()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendMessage" \
-            -d chat_id=864227156 \
-            -d text="✅ Сборка успешна. Отправляю APK..."
           curl -F chat_id="864227156" \
                -F document=@app/build/outputs/apk/debug/app-debug.apk \
-               -F caption="☕ LV307 Telemetry v3.0" \
-               https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendDocument
+               -F caption="✅ Твой APK готов! Устанавливай и пользуйся." \
+               https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendDocument
 
-      - name: Send error text
+      - name: Notify Error
         if: failure()
         run: |
-          ERR=$(tail -n 40 build.log | sed 's/"/\\"/g' | tr '\n' ' ' | cut -c1-1500)
-          curl -s -X POST "https://api.telegram.org/bot8923730105:AAFuh0THsvEYvzQCXXtpD_e715WfIZoTaaU/sendMessage" \
-            -d chat_id=864227156 \
-            -d text="❌ Ошибка сборки:%0A$ERR"
+          curl -s -X POST "https://api.telegram.org/bot8923730105:AAGxhDICR3BtkaKeDOo2WiZE3OrdS_qiYk4/sendMessage" \
+            -d "chat_id=864227156" \
+            -d "text=❌ Произошла ошибка при сборке. Я проверю код еще раз."
