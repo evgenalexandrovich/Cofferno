@@ -1,9 +1,6 @@
-name: Build and Release APK
+name: Build and Upload Direct Link
 
 on: [push, workflow_dispatch]
-
-permissions:
-  contents: write
 
 jobs:
   build:
@@ -285,7 +282,7 @@ jobs:
                   Thread {
                       try {
                           mqtt?.publish("vending/$serial/telemetry", MqttMessage(gson.toJson(data).toByteArray()).apply { qos = 1 })
-                      } catch (e: Exception) { e.printStackTrace() }
+                      } catch (e: Exception) {}
                   }.start()
               }
           }
@@ -403,104 +400,4 @@ jobs:
 
               private fun showMachineSetup() {
                   val root = rootLayout()
-                  root.addView(mkLabel("Установка на кофемашину", 20f, C.dark, true))
-                  root.addView(mkLabel("Введите серийный номер автомата:", 14f, C.sec).apply { setPadding(0, 16, 0, 16) })
-                  val serialInput = mkInput("Например: LV307-A1B2C3")
-                  root.addView(serialInput)
-                  root.addView(mkBtn("ЗАПУСТИТЬ СЕРВИС", C.primary) {
-                      val s = serialInput.text.toString().trim()
-                      if (s.isNotEmpty()) {
-                          db.addMachine(s)
-                          startService(Intent(this, LV307Service::class.java).putExtra("serial", s))
-                          Toast.makeText(this, "Сервис запущен для $s", Toast.LENGTH_LONG).show()
-                          finish()
-                      }
-                  })
-                  root.addView(mkBtn("← НАЗАД", C.sec) { showRoleSelection() })
-                  setContentView(root)
-              }
-
-              private fun showDashboard() {
-                  val scroll = ScrollView(this).apply { setBackgroundColor(C.bg) }
-                  val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 40, 28, 28) }
-                  scroll.addView(root)
-
-                  root.addView(mkLabel("☕ Мои автоматы", 22f, C.dark, true))
-                  root.addView(mkLabel("Нажмите на автомат для подробной статистики", 13f, C.sec).apply { setPadding(0, 4, 0, 24) })
-
-                  val machines = db.getMachines()
-                  if (machines.isEmpty()) {
-                      root.addView(mkLabel("Нет добавленных автоматов.\nНажмите «+» чтобы добавить.", 15f, C.sec).apply { gravity = Gravity.CENTER; setPadding(0, 60, 0, 60) })
-                  } else {
-                      machines.forEach { serial ->
-                          val info = db.getMachineInfo(serial)
-                          val sales = db.getSales(serial)
-                          val todayRev = sales.filter { isToday(it.ts) }.sumOf { it.sellPrice }
-                          val todayProfit = sales.filter { isToday(it.ts) }.sumOf { it.sellPrice - it.costPrice }
-                          val todayCups = sales.filter { isToday(it.ts) }.size
-
-                          val card = mkCard()
-                          val statusColor = if (info.errorCode != "0") C.red else if (info.isOnline) C.green else C.sec
-                          val statusText = if (info.errorCode != "0") info.errorMsg else if (info.isOnline) "Онлайн" else "Офлайн"
-
-                          card.addView(LinearLayout(this).apply {
-                              orientation = LinearLayout.HORIZONTAL
-                              addView(mkLabel(serial, 17f, C.dark, true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
-                              addView(mkLabel("● $statusText", 13f, statusColor, true))
-                          })
-                          card.addView(mkLabel("Сегодня: $todayCups чашек | $todayRev ₽ | Прибыль: $todayProfit ₽", 13f, C.sec).apply { setPadding(0, 8, 0, 0) })
-                          card.setOnClickListener { showMachineDetail(serial) }
-                          root.addView(card)
-                      }
-                  }
-
-                  root.addView(mkBtn("+ ДОБАВИТЬ АВТОМАТ", C.accent) {
-                      val input = mkInput("Серийный номер автомата")
-                      AlertDialog.Builder(this).setTitle("Новый автомат").setView(input)
-                          .setPositiveButton("Добавить") { _, _ ->
-                              val s = input.text.toString().trim()
-                              if (s.isNotEmpty()) { db.addMachine(s); showDashboard() }
-                          }.setNegativeButton("Отмена", null).show()
-                  })
-                  root.addView(mkBtn("← НАЗАД", C.sec) { showRoleSelection() })
-                  setContentView(scroll)
-                  connectMqttForDashboard(machines)
-              }
-
-              private fun showMachineDetail(serial: String) {
-                  val scroll = ScrollView(this).apply { setBackgroundColor(C.bg) }
-                  val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28, 40, 28, 28) }
-                  scroll.addView(root)
-
-                  val info = db.getMachineInfo(serial)
-                  val sales = db.getSales(serial)
-                  val drinks = db.getDrinks(serial)
-
-                  val todaySales = sales.filter { isToday(it.ts) }
-                  val weekSales = sales.filter { isThisWeek(it.ts) }
-                  val monthSales = sales.filter { isThisMonth(it.ts) }
-
-                  fun calcStats(list: List<SaleRecord>): Triple<Int, Int, Int> {
-                      val rev = list.sumOf { it.sellPrice }
-                      val profit = list.sumOf { it.sellPrice - it.costPrice }
-                      return Triple(list.size, rev, profit)
-                  }
-
-                  val (tCups, tRev, tProfit) = calcStats(todaySales)
-                  val (wCups, wRev, wProfit) = calcStats(weekSales)
-                  val (mCups, mRev, mProfit) = calcStats(monthSales)
-
-                  val statusColor = if (info.errorCode != "0") C.red else C.green
-                  root.addView(mkLabel(serial, 22f, C.dark, true))
-                  root.addView(mkLabel(if (info.errorCode != "0") "⚠ ${info.errorMsg}" else "● Онлайн — работает штатно", 14f, statusColor, true).apply { setPadding(0, 4, 0, 24) })
-
-                  fun addStatCard(title: String, cups: Int, rev: Int, profit: Int) {
-                      val card = mkCard()
-                      card.addView(mkLabel(title, 14f, C.primary, true))
-                      card.addView(LinearLayout(this).apply {
-                          orientation = LinearLayout.HORIZONTAL; setPadding(0, 12, 0, 0)
-                          addView(LinearLayout(this@MainActivity).apply {
-                              orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                              addView(mkLabel("$cups", 22f, C.dark, true).apply { gravity = Gravity.CENTER })
-                              addView(mkLabel("чашек", 11f, C.sec).apply { gravity = Gravity.CENTER })
-                          
+                  root.addView(mkLabel("Установка на кофемашину", 20f, C.dark, 
