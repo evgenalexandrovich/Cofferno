@@ -15,13 +15,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Check Telegram Connection
+      - name: Notify Start
         run: |
-          echo "Проверяем доступность бота и отправку стартового уведомления..."
-          RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
+          curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
             -d "chat_id=${{ env.CHAT_ID }}" \
-            -d "text=☕ Cofferno LV-307: Сборка началась...")
-          echo "Ответ от Telegram: $RESPONSE"
+            -d "text=☕ Cofferno LV-307 v5.0: Полная сборка телеметрии запущена..."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -34,14 +32,27 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Android Project Files
+      - name: Generate Full Project
         run: |
           BASE=app/src/main
           PKG=$BASE/java/com/coffee/telemetry
-          mkdir -p $PKG $BASE/res/layout $BASE/res/values $BASE/res/menu
+          RES=$BASE/res
 
-          # === settings.gradle ===
-          cat << 'EOF' > settings.gradle
+          mkdir -p $PKG/ui
+          mkdir -p $PKG/data
+          mkdir -p $PKG/model
+          mkdir -p $PKG/adapter
+          mkdir -p $RES/layout
+          mkdir -p $RES/values
+          mkdir -p $RES/menu
+          mkdir -p $RES/drawable
+          mkdir -p $RES/xml
+
+          # ============================================
+          # GRADLE FILES
+          # ============================================
+
+          cat << 'SETTINGS' > settings.gradle
           pluginManagement {
               repositories { google(); mavenCentral(); gradlePluginPortal() }
           }
@@ -51,26 +62,23 @@ jobs:
           }
           rootProject.name = "Cofferno"
           include ':app'
-          EOF
+          SETTINGS
 
-          # === build.gradle (root) ===
-          cat << 'EOF' > build.gradle
+          cat << 'ROOT_GRADLE' > build.gradle
           plugins {
               id 'com.android.application' version '8.1.4' apply false
               id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
           }
-          EOF
+          ROOT_GRADLE
 
-          # === gradle.properties ===
-          cat << 'EOF' > gradle.properties
+          cat << 'PROPS' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
-          org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
           kotlin.code.style=official
-          EOF
+          PROPS
 
-          # === app/build.gradle ===
-          cat << 'EOF' > app/build.gradle
+          cat << 'APP_GRADLE' > app/build.gradle
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
@@ -97,150 +105,245 @@ jobs:
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              implementation 'androidx.cardview:cardview:1.0.0'
+              implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'com.squareup.okhttp3:okhttp:4.12.0'
               implementation 'com.google.code.gson:gson:2.10.1'
+              implementation 'androidx.preference:preference-ktx:1.2.1'
           }
-          EOF
+          APP_GRADLE
 
-          # === AndroidManifest.xml ===
-          cat << 'EOF' > $BASE/AndroidManifest.xml
+          # ============================================
+          # ANDROID MANIFEST
+          # ============================================
+
+          cat << 'MANIFEST' > $BASE/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <application
+                  android:name=".CoffernoApp"
                   android:allowBackup="true"
                   android:icon="@android:drawable/sym_def_app_icon"
                   android:label="@string/app_name"
-                  android:theme="@style/AppTheme">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
+                  android:theme="@style/AppTheme"
+                  android:supportsRtl="true">
+                  <activity android:name=".ui.RoleSelectionActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+                  <activity android:name=".ui.MachineRegistrationActivity" android:exported="false" />
+                  <activity android:name=".ui.MachineDisplayActivity" android:exported="false" />
+                  <activity android:name=".ui.OperatorDashboardActivity" android:exported="false" />
+                  <activity android:name=".ui.AddMachineActivity" android:exported="false" />
+                  <activity android:name=".ui.MachineDetailActivity" android:exported="false" />
               </application>
           </manifest>
-          EOF
+          MANIFEST
 
-          # === strings.xml ===
-          cat << 'EOF' > $BASE/res/values/strings.xml
+          # ============================================
+          # RESOURCES — VALUES
+          # ============================================
+
+          cat << 'STRINGS' > $RES/values/strings.xml
           <resources>
               <string name="app_name">Cofferno LV-307</string>
-              <string name="status_ready">Аппарат готов к работе</string>
+              <string name="choose_role">Выберите режим работы</string>
+              <string name="role_machine">Кофемашина</string>
+              <string name="role_operator">Пульт оператора</string>
+              <string name="role_machine_desc">Установите на устройство кофейного аппарата для передачи телеметрии</string>
+              <string name="role_operator_desc">Мониторинг и управление всеми подключёнными аппаратами</string>
+              <string name="serial_number">Серийный номер</string>
+              <string name="serial_hint">Например: LV-307-00142</string>
+              <string name="register">Зарегистрировать</string>
+              <string name="add_machine">Добавить аппарат</string>
+              <string name="connect">Подключить</string>
+              <string name="dashboard">Дашборд</string>
+              <string name="settings">Настройки</string>
+              <string name="machines_list">Мои аппараты</string>
+              <string name="no_machines">Аппараты не добавлены</string>
+              <string name="status_online">В сети</string>
+              <string name="status_offline">Не в сети</string>
+              <string name="status_error">Ошибка</string>
+              <string name="coffee_beans">Кофе в зёрнах</string>
+              <string name="milk_powder">Сухое молоко</string>
+              <string name="chocolate">Шоколад</string>
+              <string name="water">Вода</string>
+              <string name="cups">Стаканчики</string>
+              <string name="waste_container">Контейнер отходов</string>
+              <string name="drip_tray">Каплесборник</string>
+              <string name="boiler_temp">Температура бойлера</string>
+              <string name="revenue_today">Выручка сегодня</string>
+              <string name="drinks_sold">Напитков продано</string>
+              <string name="reboot">Перезагрузить</string>
+              <string name="flush">Промывка</string>
+              <string name="lock">Заблокировать</string>
+              <string name="machine_status">Состояние аппарата</string>
+              <string name="ingredients">Ингредиенты</string>
+              <string name="finances">Финансы</string>
+              <string name="controls">Управление</string>
+              <string name="field_required">Заполните это поле</string>
+              <string name="registration_success">Аппарат зарегистрирован!</string>
+              <string name="machine_added">Аппарат добавлен!</string>
           </resources>
-          EOF
+          STRINGS
 
-          # === colors.xml ===
-          cat << 'EOF' > $BASE/res/values/colors.xml
+          cat << 'COLORS' > $RES/values/colors.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="bg">#1E130F</color>
-              <color name="coffee_dark">#2B1B17</color>
+              <color name="bg_dark">#1A120B</color>
+              <color name="bg_card">#2B1B17</color>
               <color name="coffee_primary">#6F4E37</color>
-              <color name="coffee_gold">#FFC107</color>
+              <color name="coffee_light">#A0785A</color>
+              <color name="coffee_gold">#FFB300</color>
+              <color name="coffee_cream">#F5E6CC</color>
               <color name="white">#FFFFFF</color>
+              <color name="text_secondary">#B0A090</color>
+              <color name="green_ok">#4CAF50</color>
+              <color name="red_error">#F44336</color>
+              <color name="orange_warn">#FF9800</color>
+              <color name="blue_info">#2196F3</color>
+              <color name="bg_button">#3E2723</color>
           </resources>
-          EOF
+          COLORS
 
-          # === styles.xml ===
-          cat << 'EOF' > $BASE/res/values/styles.xml
+          cat << 'STYLES' > $RES/values/styles.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
                   <item name="colorPrimary">@color/coffee_primary</item>
-                  <item name="colorPrimaryDark">@color/coffee_dark</item>
-                  <item name="colorAccent">@color/coffee_gold</item>
-                  <item name="android:windowBackground">@color/bg</item>
+                  <item name="colorPrimaryVariant">@color/bg_card</item>
+                  <item name="colorOnPrimary">@color/white</item>
+                  <item name="colorSecondary">@color/coffee_gold</item>
+                  <item name="android:windowBackground">@color/bg_dark</item>
+                  <item name="android:statusBarColor">@color/bg_dark</item>
+                  <item name="android:navigationBarColor">@color/bg_dark</item>
+              </style>
+              <style name="CardStyle">
+                  <item name="cardBackgroundColor">@color/bg_card</item>
+                  <item name="cardCornerRadius">16dp</item>
+                  <item name="cardElevation">4dp</item>
+                  <item name="contentPadding">20dp</item>
+                  <item name="android:layout_marginBottom">12dp</item>
+              </style>
+              <style name="GoldButton" parent="Widget.MaterialComponents.Button">
+                  <item name="backgroundTint">@color/coffee_gold</item>
+                  <item name="android:textColor">@color/bg_dark</item>
+                  <item name="android:textStyle">bold</item>
+                  <item name="cornerRadius">12dp</item>
+              </style>
+              <style name="OutlineButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+                  <item name="strokeColor">@color/coffee_gold</item>
+                  <item name="android:textColor">@color/coffee_gold</item>
+                  <item name="cornerRadius">12dp</item>
               </style>
           </resources>
-          EOF
+          STYLES
 
-          # === bottom_nav.xml ===
-          cat << 'EOF' > $BASE/res/menu/bottom_nav.xml
+          # ============================================
+          # RESOURCES — DRAWABLES
+          # ============================================
+
+          cat << 'BG_ROLE' > $RES/drawable/bg_role_card.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#2B1B17"/>
+              <corners android:radius="20dp"/>
+              <stroke android:width="2dp" android:color="#6F4E37"/>
+          </shape>
+          BG_ROLE
+
+          cat << 'BG_INPUT' > $RES/drawable/bg_input.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#3E2723"/>
+              <corners android:radius="12dp"/>
+              <stroke android:width="1dp" android:color="#6F4E37"/>
+              <padding android:left="16dp" android:right="16dp" android:top="4dp" android:bottom="4dp"/>
+          </shape>
+          BG_INPUT
+
+          cat << 'PROGRESS_BG' > $RES/drawable/progress_bg.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#3E2723"/>
+              <corners android:radius="8dp"/>
+          </shape>
+          PROGRESS_BG
+
+          cat << 'STATUS_DOT' > $RES/drawable/status_dot_online.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="oval">
+              <solid android:color="#4CAF50"/>
+              <size android:width="12dp" android:height="12dp"/>
+          </shape>
+          STATUS_DOT
+
+          # ============================================
+          # RESOURCES — MENU
+          # ============================================
+
+          cat << 'NAV_MENU' > $RES/menu/bottom_nav_operator.xml
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
               <item android:id="@+id/nav_dashboard" android:title="Дашборд" android:icon="@android:drawable/ic_menu_view"/>
+              <item android:id="@+id/nav_machines" android:title="Аппараты" android:icon="@android:drawable/ic_menu_sort_by_size"/>
               <item android:id="@+id/nav_settings" android:title="Настройки" android:icon="@android:drawable/ic_menu_preferences"/>
           </menu>
-          EOF
+          NAV_MENU
 
-          # === activity_main.xml ===
-          cat << 'EOF' > $BASE/res/layout/activity_main.xml
+          # ============================================
+          # RESOURCES — LAYOUTS
+          # ============================================
+
+          # --- Role Selection ---
+          cat << 'LAYOUT_ROLE' > $RES/layout/activity_role_selection.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <androidx.constraintlayout.widget.ConstraintLayout 
-              xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
+          <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
               android:layout_width="match_parent"
-              android:layout_height="match_parent">
-
-              <TextView
-                  android:layout_width="wrap_content"
+              android:layout_height="match_parent"
+              android:background="@color/bg_dark"
+              android:fillViewport="true">
+              <LinearLayout
+                  android:layout_width="match_parent"
                   android:layout_height="wrap_content"
-                  android:text="@string/status_ready"
-                  android:textColor="@color/white"
-                  android:textSize="20sp"
-                  app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
-                  app:layout_constraintEnd_toEndOf="parent"
-                  app:layout_constraintStart_toStartOf="parent"
-                  app:layout_constraintTop_toTopOf="parent" />
+                  android:orientation="vertical"
+                  android:gravity="center"
+                  android:padding="32dp">
 
-              <com.google.android.material.bottomnavigation.BottomNavigationView
-                  android:id="@+id/bottom_navigation"
-                  android:layout_width="0dp"
-                  android:layout_height="wrap_content"
-                  app:menu="@menu/bottom_nav"
-                  app:layout_constraintStart_toStartOf="parent"
-                  app:layout_constraintEnd_toEndOf="parent"
-                  app:layout_constraintBottom_toBottomOf="parent"/>
-          </androidx.constraintlayout.widget.ConstraintLayout>
-          EOF
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="☕"
+                      android:textSize="72sp"
+                      android:layout_marginBottom="16dp"/>
 
-          # === MainActivity.kt ===
-          cat << 'EOF' > $PKG/MainActivity.kt
-          package com.coffee.telemetry
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Cofferno LV-307"
+                      android:textColor="@color/coffee_gold"
+                      android:textSize="28sp"
+                      android:textStyle="bold"
+                      android:layout_marginBottom="8dp"/>
 
-          import android.os.Bundle
-          import androidx.appcompat.app.AppCompatActivity
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Система телеметрии"
+                      android:textColor="@color/text_secondary"
+                      android:textSize="16sp"
+                      android:layout_marginBottom="48dp"/>
 
-          class MainActivity : AppCompatActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContentView(R.layout.activity_main)
-              }
-          }
-          EOF
-
-      - name: Build APK with Gradle
-        run: gradle assembleDebug --no-daemon --stacktrace
-
-      - name: Send APK to Telegram
-        if: success()
-        run: |
-          echo "Ищем собранный APK..."
-          APK_FILE=$(find app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
-
-          if [ -z "$APK_FILE" ]; then
-            echo "❌ Ошибка: APK файл не найден!"
-            exit 1
-          fi
-
-          echo "Найден APK: $APK_FILE"
-          echo "Отправляем в Telegram..."
-
-          RESPONSE=$(curl -s -w "\nHTTP_STATUS: %{http_code}\n" \
-            -F chat_id="${{ env.CHAT_ID }}" \
-            -F caption="✅ Cofferno LV-307 v5.0 готов к установке!" \
-            -F document=@"$APK_FILE" \
-            "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument")
-
-          echo "Ответ от Telegram:"
-          echo "$RESPONSE"
-
-      - name: Notify Failure
-        if: failure()
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
-            -d "chat_id=${{ env.CHAT_ID }}" \
-            -d "text=❌ Сборка Cofferno LV-307 завершилась ошибкой. Проверьте логи вкладки Actions на GitHub."
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="@string/choose_role"
+                
