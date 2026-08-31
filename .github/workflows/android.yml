@@ -12,27 +12,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.5'
 
-      - name: Generate Project Files
+      - name: Generate Project
         run: |
           B=app/src/main
           P=$B/java/com/coffee/telemetry
           mkdir -p $P $B/res/layout $B/res/values $B/res/menu
 
-          # settings.gradle
           cat << 'EOF' > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
@@ -43,7 +39,6 @@ jobs:
           include ':app'
           EOF
 
-          # root build.gradle
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.1.4' apply false
@@ -51,7 +46,6 @@ jobs:
           }
           EOF
 
-          # gradle.properties
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
@@ -59,7 +53,6 @@ jobs:
           kotlin.code.style=official
           EOF
 
-          # app/build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -73,7 +66,7 @@ jobs:
                   minSdk 23
                   targetSdk 34
                   versionCode 61
-                  versionName "6.1-FIXED"
+                  versionName "6.1-STABLE"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -92,7 +85,6 @@ jobs:
           }
           EOF
 
-          # AndroidManifest.xml
           cat << 'EOF' > $B/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -101,6 +93,7 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <application
                   android:allowBackup="true"
@@ -114,7 +107,7 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-                  <service android:name=".AgentService" android:enabled="true" android:exported="false"/>
+                  <service android:name=".AgentService" android:enabled="true" android:exported="false" android:foregroundServiceType="dataSync"/>
                   <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -125,12 +118,10 @@ jobs:
           </manifest>
           EOF
 
-          # strings.xml
           cat << 'EOF' > $B/res/values/strings.xml
           <resources><string name="app_name">Cofferno LV-307</string></resources>
           EOF
 
-          # colors.xml
           cat << 'EOF' > $B/res/values/colors.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -147,7 +138,6 @@ jobs:
           </resources>
           EOF
 
-          # styles.xml
           cat << 'EOF' > $B/res/values/styles.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -160,7 +150,6 @@ jobs:
           </resources>
           EOF
 
-          # bottom_nav.xml
           cat << 'EOF' > $B/res/menu/bottom_nav.xml
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -170,7 +159,6 @@ jobs:
           </menu>
           EOF
 
-          # activity_main.xml
           cat << 'EOF' > $B/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <androidx.constraintlayout.widget.ConstraintLayout
@@ -369,7 +357,6 @@ jobs:
                       <LinearLayout android:id="@+id/tab_manage" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
 
-                          <!-- Add Machine -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -398,7 +385,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Cost Settings -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -446,7 +432,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Actions -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
@@ -531,7 +516,6 @@ jobs:
           import android.app.NotificationChannel
           import android.app.NotificationManager
           import android.app.Service
-          import android.content.Context
           import android.content.Intent
           import android.os.Build
           import android.os.IBinder
@@ -560,27 +544,28 @@ jobs:
               private val drinkNames = listOf("Эспрессо", "Капучино", "Латте", "Американо")
               private val drinkPrices = listOf(120, 180, 200, 130)
 
-              override fun onBind(intent: Intent?): IBinder? = null
+              override fun onBind(i: Intent?): IBinder? = null
 
               override fun onCreate() {
                   super.onCreate()
                   val ch = "cofferno_agent"
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                      mgr.createNotificationChannel(
+                      val nm = getSystemService(NotificationManager::class.java)
+                      nm?.createNotificationChannel(
                           NotificationChannel(ch, "Agent", NotificationManager.IMPORTANCE_LOW)
                       )
                   }
-                  val notif = NotificationCompat.Builder(this, ch)
+                  val notification = NotificationCompat.Builder(this, ch)
                       .setContentTitle("☕ Cofferno Agent")
                       .setContentText("Телеметрия активна")
                       .setSmallIcon(android.R.drawable.stat_notify_sync)
                       .setOngoing(true)
                       .build()
-                  startForeground(1, notif)
 
-                  val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-                  wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:Wake")
+                  startForeground(1, notification)
+
+                  val pm = getSystemService(POWER_SERVICE) as PowerManager
+                  wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:W")
                   wake?.acquire(86400000L)
                   startLoop()
               }
@@ -588,9 +573,7 @@ jobs:
               private fun getSerial(): String {
                   return try {
                       Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "UNKNOWN"
-                  } catch (e: Exception) {
-                      "UNKNOWN"
-                  }
+                  } catch (e: Exception) { "UNKNOWN" }
               }
 
               private fun startLoop() {
@@ -600,60 +583,52 @@ jobs:
                               if (client == null || client?.isConnected == false) {
                                   val sn = getSerial()
                                   client = MqttClient(broker, "AGT_$sn", MemoryPersistence())
-                                  val opts = MqttConnectOptions().apply {
+                                  client?.connect(MqttConnectOptions().apply {
                                       isAutomaticReconnect = true
                                       connectionTimeout = 15
                                       keepAliveInterval = 30
-                                  }
+                                  })
                                   client?.setCallback(object : MqttCallback {
-                                      override fun connectionLost(cause: Throwable?) {}
-                                      override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                          val cmd = message?.toString() ?: return
+                                      override fun connectionLost(c: Throwable?) {}
+                                      override fun messageArrived(t: String?, m: MqttMessage?) {
+                                          val cmd = m?.toString() ?: return
                                           when (cmd) {
                                               "RESET_COUNTERS" -> drinkCounts = intArrayOf(0, 0, 0, 0)
                                               "FLUSH" -> {}
                                               "TOGGLE_LOCK" -> {}
                                           }
                                       }
-                                      override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                                      override fun deliveryComplete(t: IMqttDeliveryToken?) {}
                                   })
-                                  client?.connect(opts)
                                   client?.subscribe("cofferno/$sn/commands", 1)
-
                                   sched?.shutdownNow()
                                   sched = Executors.newSingleThreadScheduledExecutor()
                                   sched?.scheduleAtFixedRate({ send() }, 0, 3, TimeUnit.SECONDS)
                               }
-                          } catch (e: Exception) {
-                              e.printStackTrace()
-                          }
-                          try { Thread.sleep(5000) } catch (e: Exception) {}
+                          } catch (e: Exception) { e.printStackTrace() }
+                          try { Thread.sleep(5000) } catch (_: Exception) {}
                       }
                   }
               }
 
               private fun send() {
-                  try {
-                      if (client?.isConnected != true) return
-                      val drinks = drinkNames.indices.map {
-                          DrinkData(drinkNames[it], drinkCounts[it], drinkPrices[it])
-                      }
-                      val pkt = TelemetryPacket(getSerial(), 93.2, 9.1, "Готов к выдаче", drinks)
-                      val msg = MqttMessage(gson.toJson(pkt).toByteArray()).apply {
-                          qos = 1
-                          isRetained = true
-                      }
-                      client?.publish("cofferno/${getSerial()}/telemetry", msg)
-                  } catch (e: Exception) {
-                      e.printStackTrace()
-                  }
+                try {
+                    if (client?.isConnected != true) return
+                    val drinks = drinkNames.indices.map {
+                        DrinkData(drinkNames[it], drinkCounts[it], drinkPrices[it])
+                    }
+                    val pkt = TelemetryPacket(getSerial(), 93.2, 9.1, "Готов к выдаче", drinks)
+                    val msg = MqttMessage(gson.toJson(pkt).toByteArray()).apply {
+                        qos = 1
+                        isRetained = true
+                    }
+                    client?.publish("cofferno/${getSerial()}/telemetry", msg)
+                } catch (e: Exception) { e.printStackTrace() }
               }
 
               override fun onDestroy() {
                   sched?.shutdownNow()
-                  exec.execute {
-                      try { client?.disconnect() } catch (e: Exception) {}
-                  }
+                  try { client?.disconnect() } catch (_: Exception) {}
                   wake?.release()
                   super.onDestroy()
               }
@@ -714,52 +689,53 @@ jobs:
           import org.eclipse.paho.client.mqttv3.MqttMessage
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.util.concurrent.Executors
+          import kotlin.math.min
 
           class MainActivity : AppCompatActivity() {
               private val broker = "tcp://broker.hivemq.com:1883"
               private var client: MqttClient? = null
               private val gson = Gson()
               private var lastMsg = 0L
-              private var isConnected = false
+              private var connected = false
               private var currentSerial = ""
-              private val handler = Handler(Looper.getMainLooper())
-              private val executor = Executors.newSingleThreadExecutor()
+              private val h = Handler(Looper.getMainLooper())
 
-              private val watchdog = object : Runnable {
+              private val watch = object : Runnable {
                   override fun run() {
                       val tv = findViewById<TextView>(R.id.tv_status)
                       when {
-                          !isConnected -> {
+                          !connected -> {
                               tv.text = "● Подключение к MQTT..."
-                              tv.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.yellow))
+                              tv.setTextColor(c(R.color.yellow))
                           }
                           System.currentTimeMillis() - lastMsg > 9000 -> {
                               tv.text = "🔴 Аппарат оффлайн"
-                              tv.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.red))
+                              tv.setTextColor(c(R.color.red))
                           }
                           else -> {
                               tv.text = "🟢 Аппарат онлайн"
-                              tv.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.green))
+                              tv.setTextColor(c(R.color.green))
                           }
                       }
-                      handler.postDelayed(this, 2000)
+                      h.postDelayed(this, 2000)
                   }
               }
+
+              private fun c(id: Int) = ContextCompat.getColor(this, id)
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
-
                   val prefs = getSharedPreferences("cofferno", Context.MODE_PRIVATE)
 
                   val tabSales = findViewById<LinearLayout>(R.id.tab_sales)
                   val tabManage = findViewById<LinearLayout>(R.id.tab_manage)
                   val tabAgent = findViewById<LinearLayout>(R.id.tab_agent)
 
-                  findViewById<BottomNavigationView>(R.id.bottom_nav).setOnItemSelectedListener { item ->
-                      tabSales.visibility = if (item.itemId == R.id.nav_sales) View.VISIBLE else View.GONE
-                      tabManage.visibility = if (item.itemId == R.id.nav_manage) View.VISIBLE else View.GONE
-                      tabAgent.visibility = if (item.itemId == R.id.nav_agent) View.VISIBLE else View.GONE
+                  findViewById<BottomNavigationView>(R.id.bottom_nav).setOnItemSelectedListener {
+                      tabSales.visibility = if (it.itemId == R.id.nav_sales) View.VISIBLE else View.GONE
+                      tabManage.visibility = if (it.itemId == R.id.nav_manage) View.VISIBLE else View.GONE
+                      tabAgent.visibility = if (it.itemId == R.id.nav_agent) View.VISIBLE else View.GONE
                       true
                   }
 
@@ -785,7 +761,7 @@ jobs:
                                   findViewById<TextView>(R.id.tv_serial).text = "S/N: $sn"
                               }
                               refreshMachineList()
-                              subscribeToMachine(sn)
+                              reconnectMqtt()
                               Toast.makeText(this, "Аппарат $sn добавлен", Toast.LENGTH_SHORT).show()
                           }
                           findViewById<EditText>(R.id.et_serial).text.clear()
@@ -793,13 +769,12 @@ jobs:
                   }
 
                   findViewById<Button>(R.id.btn_save_cost).setOnClickListener {
-                      prefs.edit().apply {
-                          putInt("cost_0", findViewById<EditText>(R.id.et_cost1).text.toString().toIntOrNull() ?: 35)
-                          putInt("cost_1", findViewById<EditText>(R.id.et_cost2).text.toString().toIntOrNull() ?: 55)
-                          putInt("cost_2", findViewById<EditText>(R.id.et_cost3).text.toString().toIntOrNull() ?: 60)
-                          putInt("cost_3", findViewById<EditText>(R.id.et_cost4).text.toString().toIntOrNull() ?: 30)
-                          apply()
-                      }
+                      val e = prefs.edit()
+                      e.putInt("cost_0", findViewById<EditText>(R.id.et_cost1).text.toString().toIntOrNull() ?: 35)
+                      e.putInt("cost_1", findViewById<EditText>(R.id.et_cost2).text.toString().toIntOrNull() ?: 55)
+                      e.putInt("cost_2", findViewById<EditText>(R.id.et_cost3).text.toString().toIntOrNull() ?: 60)
+                      e.putInt("cost_3", findViewById<EditText>(R.id.et_cost4).text.toString().toIntOrNull() ?: 30)
+                      e.apply()
                       Toast.makeText(this, "Себестоимость сохранена", Toast.LENGTH_SHORT).show()
                   }
 
@@ -825,30 +800,26 @@ jobs:
                   val tvAg = findViewById<TextView>(R.id.tv_agent_status)
                   sw.isChecked = prefs.getBoolean("agent_on", false)
                   tvAg.text = if (sw.isChecked) "🟢 Работает в фоне" else "Остановлена"
-
                   sw.setOnCheckedChangeListener { _, on ->
                       prefs.edit().putBoolean("agent_on", on).apply()
-                      val serviceIntent = Intent(this, AgentService::class.java)
                       if (on) {
                           tvAg.text = "🟢 Запуск..."
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                              startForegroundService(serviceIntent)
-                          } else {
-                              startService(serviceIntent)
-                          }
-                          handler.postDelayed({ moveTaskToBack(true) }, 1000)
+                          val i = Intent(this, AgentService::class.java)
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
+                          else startService(i)
+                          Handler(Looper.getMainLooper()).postDelayed({ moveTaskToBack(true) }, 1000)
                       } else {
-                          stopService(serviceIntent)
+                          stopService(Intent(this, AgentService::class.java))
                           tvAg.text = "Остановлена"
                       }
                   }
 
-                  connectMqtt()
-                  handler.post(watchdog)
+                  reconnectMqtt()
+                  h.post(watch)
               }
 
               private fun loadMachines(): List<String> {
-                  val s = getSharedPreferences("cofferno", Context.MODE_PRIVATE).getString("machines", "[]")
+                  val s = getSharedPreferences("cofferno", Context.MODE_PRIVATE).getString("machines", "[]") ?: "[]"
                   return try {
                       gson.fromJson(s, object : TypeToken<List<String>>() {}.type) ?: emptyList()
                   } catch (e: Exception) {
@@ -857,8 +828,7 @@ jobs:
               }
 
               private fun saveMachines(list: List<String>) {
-                  getSharedPreferences("cofferno", Context.MODE_PRIVATE).edit()
-                      .putString("machines", gson.toJson(list)).apply()
+                  getSharedPreferences("cofferno", Context.MODE_PRIVATE).edit().putString("machines", gson.toJson(list)).apply()
               }
 
               private fun refreshMachineList() {
@@ -868,34 +838,114 @@ jobs:
                       tv.text = "Нет добавленных машин"
                   } else {
                       tv.text = machines.joinToString("\n") { sn ->
-                          val mark = if (sn == currentSerial) " (Активен)" else ""
+                          val mark = if (sn == currentSerial) " ✅" else ""
                           "• $sn$mark"
                       }
                   }
               }
 
-              private fun connectMqtt() {
-                  executor.execute {
-                      try {
-                          val clientId = "Phone_${System.currentTimeMillis() % 100000}"
-                          client = MqttClient(broker, clientId, MemoryPersistence())
-                          val opts = MqttConnectOptions().apply {
-                              isAutomaticReconnect = true
-                              connectionTimeout = 15
-                              keepAliveInterval = 30
-                          }
-                          client?.setCallback(object : MqttCallback {
-                              override fun connectionLost(cause: Throwable?) {
-                                  isConnected = false
+              private fun reconnectMqtt() {
+                  Executors.newSingleThreadExecutor().execute {
+                      while (true) {
+                          try {
+                              if (client == null || client?.isConnected == false) {
+                                  client = MqttClient(broker, "Phone_${System.currentTimeMillis() % 10000}", MemoryPersistence())
+                                  client?.connect(MqttConnectOptions().apply {
+                                      isAutomaticReconnect = true
+                                      connectionTimeout = 15
+                                      keepAliveInterval = 30
+                                  })
+                                  client?.setCallback(object : MqttCallback {
+                                      override fun connectionLost(c: Throwable?) { connected = false }
+                                      override fun messageArrived(topic: String?, msg: MqttMessage?) {
+                                          val json = msg?.toString() ?: return
+                                          lastMsg = System.currentTimeMillis()
+                                          runOnUiThread { updateSales(json) }
+                                      }
+                                      override fun deliveryComplete(t: IMqttDeliveryToken?) {}
+                                  })
+                                  val machines = loadMachines()
+                                  for (sn in machines) {
+                                      client?.subscribe("cofferno/$sn/telemetry", 1)
+                                  }
+                                  connected = true
                               }
-                              override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                  val json = message?.toString() ?: return
-                                  lastMsg = System.currentTimeMillis()
-                                  runOnUiThread { updateSales(json) }
-                              }
-                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                          })
-                          client?.connect(opts)
-                          isConnected = true
+                          } catch (e: Exception) { connected = false }
+                          try { Thread.sleep(5000) } catch (_: Exception) {}
+                      }
+                  }
+              }
 
-                          val 
+              private fun sendCmd(cmd: String) {
+                  Executors.newSingleThreadExecutor().execute {
+                      try {
+                          if (currentSerial.isNotEmpty() && client?.isConnected == true) {
+                              client?.publish("cofferno/$currentSerial/commands", MqttMessage(cmd.toByteArray()).apply { qos = 1 })
+                          }
+                      } catch (_: Exception) {}
+                  }
+              }
+
+              private fun updateSales(json: String) {
+                  try {
+                      val pkt = gson.fromJson(json, TelemetryPacket::class.java)
+                      findViewById<TextView>(R.id.tv_serial).text = "S/N: ${pkt.serial}"
+                      val prefs = getSharedPreferences("cofferno", Context.MODE_PRIVATE)
+                      var totalRev = 0
+                      var totalProfit = 0
+                      var totalCups = 0
+                      val ids = listOf(
+                          intArrayOf(R.id.tv_d1_info, R.id.tv_d1_revenue, R.id.tv_d1_profit),
+                          intArrayOf(R.id.tv_d2_info, R.id.tv_d2_revenue, R.id.tv_d2_profit),
+                          intArrayOf(R.id.tv_d3_info, R.id.tv_d3_revenue, R.id.tv_d3_profit),
+                          intArrayOf(R.id.tv_d4_info, R.id.tv_d4_revenue, R.id.tv_d4_profit)
+                      )
+                      val count = min(pkt.drinks.size, 4)
+                      for (i in 0 until count) {
+                          val d = pkt.drinks[i]
+                          val cost = prefs.getInt("cost_$i", 35)
+                          val rev = d.count * d.price
+                          val profit = d.count * (d.price - cost)
+                          totalRev += rev
+                          totalProfit += profit
+                          totalCups += d.count
+                          findViewById<TextView>(ids[i][0]).text = "${d.count} шт × ${d.price} ₽ (себес: ${cost} ₽)"
+                          findViewById<TextView>(ids[i][1]).text = "$rev ₽"
+                          findViewById<TextView>(ids[i][2]).text = "+$profit ₽"
+                          findViewById<TextView>(ids[i][2]).setTextColor(if (profit >= 0) c(R.color.green) else c(R.color.red))
+                      }
+                      findViewById<TextView>(R.id.tv_total_revenue).text = "$totalRev ₽"
+                      findViewById<TextView>(R.id.tv_total_profit).text = "$totalProfit ₽"
+                      findViewById<TextView>(R.id.tv_total_cups).text = "Всего порций: $totalCups"
+                  } catch (_: Exception) {}
+              }
+
+              override fun onDestroy() {
+                  h.removeCallbacks(watch)
+                  try { client?.disconnect() } catch (_: Exception) {}
+                  super.onDestroy()
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Send APK to Telegram
+        if: success()
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK" ]; then
+            echo "Отправка APK..."
+            curl -v -F "chat_id=${{ env.CHAT_ID }}" \
+                 -F "caption=☕ Cofferno v6.1 — Продажи + Себестоимость + S/N" \
+                 -F "document=@$APK" \
+                 "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
+          fi
+
+      - name: Notify Fail
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ env.CHAT_ID }}" \
+            -d "text=❌ Ошибка компиляции Cofferno v6.1"
