@@ -31,10 +31,19 @@ jobs:
 
           # settings.gradle
           cat << 'EOF' > settings.gradle
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          pluginManagement { 
+              repositories { 
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal() 
+              } 
+          }
           dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+              repositories { 
+                  google()
+                  mavenCentral() 
+              }
           }
           rootProject.name = "Cofferno"
           include ':app'
@@ -43,8 +52,8 @@ jobs:
           # root build.gradle
           cat << 'EOF' > build.gradle
           plugins {
-              id 'com.android.application' version '8.1.4' apply false
-              id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
+              id 'com.android.application' version '8.2.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
           }
           EOF
 
@@ -98,6 +107,7 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.READ_LOGS"/>
@@ -114,7 +124,11 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-                  <service android:name=".AgentService" android:enabled="true" android:exported="false"/>
+                  <service 
+                      android:name=".AgentService" 
+                      android:enabled="true" 
+                      android:exported="false"
+                      android:foregroundServiceType="specialUse"/>
                   <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -178,15 +192,16 @@ jobs:
               android:layout_height="match_parent"
               android:background="@color/bg">
 
-              <!-- Top Header -->
               <LinearLayout
                   android:id="@+id/header"
-                  android:layout_width="match_parent"
+                  android:layout_width="0dp"
                   android:layout_height="wrap_content"
                   android:background="@color/card"
                   android:padding="12dp"
                   android:orientation="horizontal"
                   android:gravity="center_vertical"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
                   app:layout_constraintTop_toTopOf="parent">
 
                   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
@@ -214,9 +229,12 @@ jobs:
                       android:textColor="@color/accent"/>
               </LinearLayout>
 
-              <!-- Main Scrollable Area -->
-              <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
+              <ScrollView 
+                  android:layout_width="0dp" 
+                  android:layout_height="0dp"
                   android:fillViewport="true"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
                   app:layout_constraintTop_toBottomOf="@id/header"
                   app:layout_constraintBottom_toTopOf="@id/bottom_nav">
                   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -242,7 +260,6 @@ jobs:
                                   android:orientation="horizontal"/>
                           </HorizontalScrollView>
 
-                          <!-- Summary Card -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -289,7 +306,6 @@ jobs:
                       <LinearLayout android:id="@+id/tab_manage" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
 
-                          <!-- 1. Мои кофемашины -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -336,7 +352,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- 2. Настройка себестоимости -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -360,7 +375,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- 3. Команды аппарату -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
@@ -392,7 +406,7 @@ jobs:
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
 
-                      <!-- TAB 3: АГЕНТ АППАРАТА (CoffeeNet Scanner) -->
+                      <!-- TAB 3: АГЕНТ АППАРАТА -->
                       <LinearLayout android:id="@+id/tab_agent" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
                           
@@ -459,11 +473,14 @@ jobs:
                   </LinearLayout>
               </ScrollView>
 
-              <!-- Bottom Navigation -->
               <com.google.android.material.bottomnavigation.BottomNavigationView
-                  android:id="@+id/bottom_nav" android:layout_width="0dp" android:layout_height="wrap_content"
-                  android:background="@color/card" app:itemIconTint="@color/accent"
-                  app:itemTextColor="@color/white" app:menu="@menu/bottom_nav"
+                  android:id="@+id/bottom_nav" 
+                  android:layout_width="0dp" 
+                  android:layout_height="wrap_content"
+                  android:background="@color/card" 
+                  app:itemIconTint="@color/accent"
+                  app:itemTextColor="@color/white" 
+                  app:menu="@menu/bottom_nav"
                   app:layout_constraintStart_toStartOf="parent"
                   app:layout_constraintEnd_toEndOf="parent"
                   app:layout_constraintBottom_toBottomOf="parent"/>
@@ -497,7 +514,6 @@ jobs:
           package com.coffee.telemetry
 
           import android.content.Context
-          import android.database.sqlite.SQLiteDatabase
           import android.os.Environment
           import java.io.BufferedReader
           import java.io.File
@@ -738,14 +754,14 @@ jobs:
                                           val cmd = message?.toString()?.trim() ?: return
                                           when {
                                               cmd == "RESET_COUNTERS" -> {
-                                                  resetCounters()
-                                                  sendHeartbeat()
+                                                  this@AgentService.resetCounters()
+                                                  this@AgentService.sendHeartbeat()
                                               }
                                               cmd == "REQUEST_UPDATE" -> {
-                                                  sendHeartbeat()
+                                                  this@AgentService.sendHeartbeat()
                                               }
                                               cmd == "REBOOT_MACHINE" -> {
-                                                  rebootDevice()
+                                                  this@AgentService.rebootDevice()
                                               }
                                           }
                                       }
@@ -827,7 +843,6 @@ jobs:
           import com.google.android.material.card.MaterialCardView
           import com.google.android.material.switchmaterial.SwitchMaterial
           import com.google.gson.Gson
-          import com.google.gson.reflect.TypeToken
           import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.util.concurrent.ConcurrentHashMap
@@ -855,27 +870,27 @@ jobs:
 
               private val watchdog = object : Runnable {
                   override fun run() {
-                      val tvStatus = findViewById<TextView>(R.id.tv_status)
+                      val tvStatus = this@MainActivity.findViewById<TextView>(R.id.tv_status)
                       when {
                           !isMqttConnected -> {
                               tvStatus.text = "● Подключение к серверу MQTT..."
-                              tvStatus.setTextColor(c(R.color.yellow))
+                              tvStatus.setTextColor(this@MainActivity.c(R.color.yellow))
                           }
                           System.currentTimeMillis() - lastMsgTime > 9000 -> {
                               tvStatus.text = "🔴 Аппараты оффлайн (Ожидание)"
-                              tvStatus.setTextColor(c(R.color.red))
+                              tvStatus.setTextColor(this@MainActivity.c(R.color.red))
                           }
                           else -> {
                               val activeCount = machinePackets.size
                               tvStatus.text = "🟢 Онлайн | Связь с $activeCount апп."
-                              tvStatus.setTextColor(c(R.color.green))
+                              tvStatus.setTextColor(this@MainActivity.c(R.color.green))
                           }
                       }
                       mainHandler.postDelayed(this, 2000)
                   }
               }
 
-              private fun c(id: Int) = ContextCompat.getColor(this, id)
+              fun c(id: Int) = ContextCompat.getColor(this, id)
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
@@ -998,7 +1013,7 @@ jobs:
                           val i = Intent(this, AgentService::class.java)
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
                           else startService(i)
-                          mainHandler.postDelayed({ moveTaskToBack(true) }, 1000)
+                          mainHandler.postDelayed({ this@MainActivity.moveTaskToBack(true) }, 1000)
                       } else {
                           stopService(Intent(this, AgentService::class.java))
                           tvAgentStatus.text = "Остановлена"
@@ -1131,7 +1146,7 @@ jobs:
                                               val packet = gson.fromJson(json, TelemetryPacket::class.java)
                                               machinePackets[packet.serial] = packet
                                               lastMsgTime = System.currentTimeMillis()
-                                              runOnUiThread {
+                                              this@MainActivity.runOnUiThread {
                                                   renderSalesUi()
                                                   renderCostInputs(packet)
                                               }
@@ -1350,12 +1365,12 @@ jobs:
           }
           EOF
 
-      # 1. Сборка проекта через Gradle
+      # Сборка проекта
       - name: Build APK with Gradle
         run: |
           gradle assembleDebug --stacktrace
 
-      # 2. Отправка собранного APK в Telegram
+      # Отправка собранного APK в Telegram
       - name: Send APK to Telegram
         if: success()
         run: |
@@ -1368,11 +1383,11 @@ jobs:
                  -F parse_mode="HTML" \
                  "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
           else
-            echo "Ошибка: APK файл не найден по пути $APK_PATH"
+            echo "Ошибка: APK файл не найден"
             exit 1
           fi
 
-      # 3. Отправка сообщения, если сборка провалилась
+      # Уведомление в случае сбоя
       - name: Send Failure Alert to Telegram
         if: failure()
         run: |
