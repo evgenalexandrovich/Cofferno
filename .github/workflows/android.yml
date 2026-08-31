@@ -42,7 +42,8 @@ jobs:
               repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
               repositories { 
                   google()
-                  mavenCentral() 
+                  mavenCentral()
+                  maven { url 'https://repo.eclipse.org/content/repositories/paho-releases/' }
               }
           }
           rootProject.name = "Cofferno"
@@ -85,8 +86,13 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions { jvmTarget = '17' }
-              lint { abortOnError false; checkReleaseBuilds false }
+              kotlinOptions { 
+                  jvmTarget = '17' 
+              }
+              lint { 
+                  abortOnError false
+                  checkReleaseBuilds false 
+              }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -107,7 +113,7 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.READ_LOGS"/>
@@ -128,7 +134,7 @@ jobs:
                       android:name=".AgentService" 
                       android:enabled="true" 
                       android:exported="false"
-                      android:foregroundServiceType="specialUse"/>
+                      android:foregroundServiceType="dataSync"/>
                   <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -173,10 +179,11 @@ jobs:
           </resources>
           EOF
 
+          # bottom_nav.xml (исправлена иконка ic_menu_agenda)
           cat << 'EOF' > $B/res/menu/bottom_nav.xml
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
-              <item android:id="@+id/nav_sales" android:title="Продажи" android:icon="@android:drawable/ic_menu_view"/>
+              <item android:id="@+id/nav_sales" android:title="Продажи" android:icon="@android:drawable/ic_menu_agenda"/>
               <item android:id="@+id/nav_manage" android:title="Управление" android:icon="@android:drawable/ic_menu_manage"/>
               <item android:id="@+id/nav_agent" android:title="Аппарат" android:icon="@android:drawable/ic_menu_preferences"/>
           </menu>
@@ -637,7 +644,7 @@ jobs:
 
                   startForeground(101, notification)
 
-                  val pm = getSystemService(POWER_SERVICE) as PowerManager
+                  val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
                   wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:Wake")
                   wakeLock?.acquire(24 * 60 * 60 * 1000L)
                   
@@ -1365,17 +1372,17 @@ jobs:
           }
           EOF
 
-      # Сборка проекта
+      # Сборка проекта с подробным выводом
       - name: Build APK with Gradle
         run: |
-          gradle assembleDebug --stacktrace
+          gradle assembleDebug --stacktrace --info
 
       # Отправка собранного APK в Telegram
       - name: Send APK to Telegram
         if: success()
         run: |
-          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
-          if [ -f "$APK_PATH" ]; then
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -n "$APK_PATH" ] && [ -f "$APK_PATH" ]; then
             echo "Файл найден: $APK_PATH. Отправляем в Telegram..."
             curl -F chat_id="${{ env.CHAT_ID }}" \
                  -F document=@"$APK_PATH" \
@@ -1383,11 +1390,11 @@ jobs:
                  -F parse_mode="HTML" \
                  "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
           else
-            echo "Ошибка: APK файл не найден"
+            echo "Ошибка: APK файл не найден!"
             exit 1
           fi
 
-      # Уведомление в случае сбоя
+      # Уведомление в случае ошибки сборки
       - name: Send Failure Alert to Telegram
         if: failure()
         run: |
