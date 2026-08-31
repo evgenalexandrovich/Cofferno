@@ -178,6 +178,7 @@ jobs:
           </resources>
           EOF
 
+          # bottom_nav.xml
           cat << 'EOF' > $B/res/menu/bottom_nav.xml
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -569,11 +570,11 @@ jobs:
                   try {
                       val process = Runtime.getRuntime().exec("logcat -d -t 100")
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
-                      var line: String?
                       var count = 0
-                      while (reader.readLine().also { line = it } != null) {
-                          if (line?.contains("coffee", ignoreCase = true) == true || line?.contains("order", ignoreCase = true) == true) {
-                              sb.append("📝 ${line?.take(60)}...\n")
+                      while (true) {
+                          val line = reader.readLine() ?: break
+                          if (line.contains("coffee", ignoreCase = true) || line.contains("order", ignoreCase = true)) {
+                              sb.append("📝 ${line.take(60)}...\n")
                               count++
                               if (count > 5) break
                           }
@@ -704,11 +705,10 @@ jobs:
                           Runtime.getRuntime().exec("logcat -c")
                           val process = Runtime.getRuntime().exec("logcat")
                           val reader = BufferedReader(InputStreamReader(process.inputStream))
-                          var line: String?
-                          while (wakeLock?.isHeld == true && reader.readLine().also { line = it } != null) {
-                              val l = line ?: continue
-                              if (l.contains("makeDrink", ignoreCase = true) || l.contains("orderSuccess", ignoreCase = true) || l.contains("dispense", ignoreCase = true)) {
-                                  val matchedDrink = extractDrinkNameFromLog(l)
+                          while (wakeLock?.isHeld == true) {
+                              val line = reader.readLine() ?: break
+                              if (line.contains("makeDrink", ignoreCase = true) || line.contains("orderSuccess", ignoreCase = true) || line.contains("dispense", ignoreCase = true)) {
+                                  val matchedDrink = extractDrinkNameFromLog(line)
                                   if (matchedDrink != null) {
                                       registerDrinkSale(matchedDrink)
                                   }
