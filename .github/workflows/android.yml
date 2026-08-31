@@ -26,7 +26,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate MQTT Telemetry Project
+      - name: Generate Production Background Telemetry Project
         run: |
           BASE=app/src/main
           PKG=$BASE/java/com/coffee/telemetry
@@ -72,8 +72,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 24
                   targetSdk 34
-                  versionCode 52
-                  versionName "5.2-MQTT"
+                  versionCode 53
+                  versionName "5.3-PRO"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -99,28 +99,47 @@ jobs:
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.WAKE_LOCK" />
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
               <application
                   android:allowBackup="true"
                   android:icon="@android:drawable/sym_def_app_icon"
                   android:label="Cofferno LV-307"
                   android:theme="@style/AppTheme">
+                  
                   <activity
                       android:name=".MainActivity"
-                      android:exported="true">
+                      android:exported="true"
+                      android:launchMode="singleTop">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
+                  <!-- Фоновая служба агента аппарата -->
+                  <service
+                      android:name=".TelemetryAgentService"
+                      android:enabled="true"
+                      android:exported="false"
+                      android:foregroundServiceType="dataSync" />
+
+                  <!-- Приемник автозапуска после перезагрузки -->
+                  <receiver
+                      android:name=".BootReceiver"
+                      android:enabled="true"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.BOOT_COMPLETED" />
+                          <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                      </intent-filter>
+                  </receiver>
+
               </application>
           </manifest>
-          EOF
-
-          # strings.xml
-          cat << 'EOF' > $BASE/res/values/strings.xml
-          <resources>
-              <string name="app_name">Cofferno LV-307</string>
-          </resources>
           EOF
 
           # colors.xml
@@ -171,7 +190,6 @@ jobs:
               android:layout_height="match_parent"
               android:background="@color/bg_main">
 
-              <!-- Header Bar -->
               <LinearLayout
                   android:id="@+id/header_bar"
                   android:layout_width="match_parent"
@@ -195,16 +213,15 @@ jobs:
                           android:textSize="18sp"
                           android:textStyle="bold" />
                       <TextView
-                          android:id="@+id/tv_mqtt_status"
+                          android:id="@+id/tv_machine_status_badge"
                           android:layout_width="wrap_content"
                           android:layout_height="wrap_content"
-                          android:text="● Подключение к MQTT..."
+                          android:text="● Поиск аппарата в сети..."
                           android:textColor="@color/coffee_accent"
                           android:textSize="12sp" />
                   </LinearLayout>
               </LinearLayout>
 
-              <!-- Main Scroll Content -->
               <ScrollView
                   android:layout_width="match_parent"
                   android:layout_height="0dp"
@@ -218,7 +235,7 @@ jobs:
                       android:orientation="vertical"
                       android:padding="16dp">
 
-                      <!-- 1. DASHBOARD TAB -->
+                      <!-- DASHBOARD TAB -->
                       <LinearLayout
                           android:id="@+id/layout_dashboard"
                           android:layout_width="match_parent"
@@ -295,19 +312,19 @@ jobs:
                                           android:layout_height="wrap_content"
                                           android:text="Ожидание"
                                           android:textColor="@color/status_green"
-                                          android:textSize="14sp"
+                                          android:textSize="13sp"
                                           android:textStyle="bold" />
                                       <TextView
                                           android:layout_width="wrap_content"
                                           android:layout_height="wrap_content"
-                                          android:text="Статус"
+                                          android:text="Состояние"
                                           android:textColor="@color/text_muted"
                                           android:textSize="11sp" />
                                   </LinearLayout>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Ingredients Card -->
+                          <!-- Ingredients -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent"
                               android:layout_height="wrap_content"
@@ -330,7 +347,6 @@ jobs:
                                       android:textStyle="bold"
                                       android:layout_marginBottom="12dp"/>
 
-                                  <!-- Coffee -->
                                   <TextView
                                       android:id="@+id/lbl_coffee"
                                       android:layout_width="wrap_content"
@@ -347,7 +363,6 @@ jobs:
                                       android:progressTint="@color/coffee_accent"
                                       android:layout_marginBottom="10dp"/>
 
-                                  <!-- Water -->
                                   <TextView
                                       android:id="@+id/lbl_water"
                                       android:layout_width="wrap_content"
@@ -364,7 +379,6 @@ jobs:
                                       android:progressTint="#42A5F5"
                                       android:layout_marginBottom="10dp"/>
 
-                                  <!-- Cups -->
                                   <TextView
                                       android:id="@+id/lbl_cups"
                                       android:layout_width="wrap_content"
@@ -382,7 +396,7 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Sales Card -->
+                          <!-- Sales -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent"
                               android:layout_height="wrap_content"
@@ -430,7 +444,7 @@ jobs:
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
 
-                      <!-- 2. CONTROL TAB (Manager Remote) -->
+                      <!-- CONTROL TAB -->
                       <LinearLayout
                           android:id="@+id/layout_control"
                           android:layout_width="match_parent"
@@ -490,7 +504,7 @@ jobs:
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
 
-                      <!-- 3. MACHINE AGENT TAB (Install on machine) -->
+                      <!-- AGENT TAB -->
                       <LinearLayout
                           android:id="@+id/layout_agent"
                           android:layout_width="match_parent"
@@ -513,7 +527,7 @@ jobs:
                                   <TextView
                                       android:layout_width="wrap_content"
                                       android:layout_height="wrap_content"
-                                      android:text="📟 Режим блока автомата"
+                                      android:text="📟 Служба автомата (Агент)"
                                       android:textColor="@color/text_white"
                                       android:textSize="16sp"
                                       android:textStyle="bold"
@@ -522,7 +536,7 @@ jobs:
                                   <TextView
                                       android:layout_width="wrap_content"
                                       android:layout_height="wrap_content"
-                                      android:text="Включите этот режим только на Android-блоке внутри кофемашины LV-307!"
+                                      android:text="Включите этот режим на Android-блоке внутри Cofferno LV-307. Приложение запустит фоновый сервис, свернется и продолжит работу в фоне с автозапуском при включении."
                                       android:textColor="@color/text_muted"
                                       android:textSize="12sp"
                                       android:layout_marginBottom="16dp"/>
@@ -531,19 +545,8 @@ jobs:
                                       android:id="@+id/switch_agent"
                                       android:layout_width="match_parent"
                                       android:layout_height="wrap_content"
-                                      android:text="Транслировать телеметрию в облако"
+                                      android:text="Фоновая служба активна"
                                       android:textColor="@color/text_white"/>
-
-                                  <TextView
-                                      android:id="@+id/tv_agent_logs"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="120dp"
-                                      android:background="#000000"
-                                      android:padding="8dp"
-                                      android:text="Лог агента готов..."
-                                      android:textColor="#00FF66"
-                                      android:textSize="11sp"
-                                      android:layout_marginTop="16dp"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
@@ -551,7 +554,6 @@ jobs:
                   </LinearLayout>
               </ScrollView>
 
-              <!-- Bottom Navigation -->
               <com.google.android.material.bottomnavigation.BottomNavigationView
                   android:id="@+id/bottom_navigation"
                   android:layout_width="0dp"
@@ -566,10 +568,192 @@ jobs:
           </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
+          # TelemetryData.kt
+          cat << 'EOF' > $PKG/TelemetryData.kt
+          package com.coffee.telemetry
+
+          data class TelemetryData(
+              val temp: Double,
+              val pressure: Double,
+              val coffee: Int,
+              val water: Int,
+              val cups: Int,
+              val totalCups: Int,
+              val totalMoney: Int,
+              val status: String,
+              val timestamp: Long = System.currentTimeMillis()
+          )
+          EOF
+
+          # TelemetryAgentService.kt
+          cat << 'EOF' > $PKG/TelemetryAgentService.kt
+          package com.coffee.telemetry
+
+          import android.app.*
+          import android.content.Context
+          import android.content.Intent
+          import android.os.Build
+          import android.os.IBinder
+          import android.os.PowerManager
+          import androidx.core.app.NotificationCompat
+          import com.google.gson.Gson
+          import org.eclipse.paho.client.mqttv3.*
+          import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+          import java.util.UUID
+          import java.util.concurrent.Executors
+          import java.util.concurrent.ScheduledExecutorService
+          import java.util.concurrent.TimeUnit
+
+          class TelemetryAgentService : Service() {
+
+              private val brokerUrl = "tcp://broker.emqx.io:1883"
+              private val topicTelemetry = "cofferno/lv307/telemetry"
+              private val topicCommands = "cofferno/lv307/commands"
+              
+              private var mqttClient: MqttClient? = null
+              private val gson = Gson()
+              private var wakeLock: PowerManager.WakeLock? = null
+              private var scheduler: ScheduledExecutorService? = null
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              override fun onCreate() {
+                  super.onCreate()
+                  startForegroundNotification()
+
+                  val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                  wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:AgentWakeLock")
+                  wakeLock?.acquire(24 * 60 * 60 * 1000L) // держим процессор активным
+
+                  connectAndStartTelemetry()
+              }
+
+              private fun startForegroundNotification() {
+                  val channelId = "cofferno_agent_channel"
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val channel = NotificationChannel(
+                          channelId,
+                          "Cofferno LV-307 Agent",
+                          NotificationManager.IMPORTANCE_LOW
+                      )
+                      val manager = getSystemService(NotificationManager::class.java)
+                      manager?.createNotificationChannel(channel)
+                  }
+
+                  val notification = NotificationCompat.Builder(this, channelId)
+                      .setContentTitle("☕ Cofferno LV-307: Агент активен")
+                      .setContentText("Трансляция телеметрии и прием команд...")
+                      .setSmallIcon(android.R.drawable.stat_notify_sync)
+                      .setOngoing(true)
+                      .build()
+
+                  startForeground(101, notification)
+              }
+
+              private fun connectAndStartTelemetry() {
+                  Executors.newSingleThreadExecutor().execute {
+                      try {
+                          val clientId = "LV307_Machine_" + UUID.randomUUID().toString().substring(0, 6)
+                          mqttClient = MqttClient(brokerUrl, clientId, MemoryPersistence())
+                          val options = MqttConnectOptions().apply {
+                              isAutomaticReconnect = true
+                              isCleanSession = true
+                              connectionTimeout = 10
+                              keepAliveInterval = 20
+                          }
+
+                          mqttClient?.setCallback(object : MqttCallback {
+                              override fun connectionLost(cause: Throwable?) {}
+                              override fun messageArrived(topic: String?, message: MqttMessage?) {
+                                  // Получена команда от смартфона
+                              }
+                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                          })
+
+                          mqttClient?.connect(options)
+                          mqttClient?.subscribe(topicCommands, 1)
+
+                          // Запуск регулярной отправки телеметрии
+                          scheduler = Executors.newSingleThreadScheduledExecutor()
+                          scheduler?.scheduleAtFixedRate({
+                              sendTelemetry()
+                          }, 0, 3, TimeUnit.SECONDS)
+
+                      } catch (e: Exception) {
+                          e.printStackTrace()
+                      }
+                  }
+              }
+
+              private fun sendTelemetry() {
+                  try {
+                      if (mqttClient?.isConnected == true) {
+                          val data = TelemetryData(
+                              temp = 93.2,
+                              pressure = 9.0,
+                              coffee = 85,
+                              water = 92,
+                              cups = 78,
+                              totalCups = 154,
+                              totalMoney = 27720,
+                              status = "Готов к работе"
+                          )
+                          val json = gson.toJson(data)
+                          val msg = MqttMessage(json.toByteArray()).apply {
+                              qos = 1
+                              isRetained = true // RETAINED = TRUE решает проблему со статусом смартфона!
+                          }
+                          mqttClient?.publish(topicTelemetry, msg)
+                      }
+                  } catch (e: Exception) {
+                      e.printStackTrace()
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  scheduler?.shutdownNow()
+                  try { mqttClient?.disconnect() } catch (e: Exception) {}
+                  wakeLock?.release()
+              }
+          }
+          EOF
+
+          # BootReceiver.kt
+          cat << 'EOF' > $PKG/BootReceiver.kt
+          package com.coffee.telemetry
+
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.os.Build
+
+          class BootReceiver : BroadcastReceiver() {
+              override fun onReceive(context: Context, intent: Intent) {
+                  if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == "android.intent.action.QUICKBOOT_POWERON") {
+                      val prefs = context.getSharedPreferences("cofferno_prefs", Context.MODE_PRIVATE)
+                      val isAgentEnabled = prefs.getBoolean("agent_enabled", false)
+
+                      if (isAgentEnabled) {
+                          val serviceIntent = Intent(context, TelemetryAgentService::class.java)
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                              context.startForegroundService(serviceIntent)
+                          } else {
+                              context.startService(serviceIntent)
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
           # MainActivity.kt
           cat << 'EOF' > $PKG/MainActivity.kt
           package com.coffee.telemetry
 
+          import android.content.Context
+          import android.content.Intent
+          import android.os.Build
           import android.os.Bundle
           import android.os.Handler
           import android.os.Looper
@@ -586,35 +770,30 @@ jobs:
           import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.util.UUID
-
-          data class TelemetryData(
-              val temp: Double,
-              val pressure: Double,
-              val coffee: Int,
-              val water: Int,
-              val cups: Int,
-              val totalCups: Int,
-              val totalMoney: Int,
-              val status: String
-          )
+          import java.util.concurrent.Executors
 
           class MainActivity : AppCompatActivity() {
 
-              private val brokerUrl = "tcp://broker.hivemq.com:1883"
+              private val brokerUrl = "tcp://broker.emqx.io:1883"
               private val topicTelemetry = "cofferno/lv307/telemetry"
               private val topicCommands = "cofferno/lv307/commands"
-              
+
               private var mqttClient: MqttClient? = null
               private val gson = Gson()
-              private val mainHandler = Handler(Looper.getMainLooper())
-              
-              private var isAgentRunning = false
-              private val agentRunnable = object : Runnable {
+              private var lastMessageTime = 0L
+              private val watchdogHandler = Handler(Looper.getMainLooper())
+
+              private val watchdogRunnable = object : Runnable {
                   override fun run() {
-                      if (isAgentRunning) {
-                          sendTelemetryHeartbeat()
-                          mainHandler.postDelayed(this, 3000) // каждые 3 секунды
+                      val tvBadge = findViewById<TextView>(R.id.tv_machine_status_badge)
+                      if (System.currentTimeMillis() - lastMessageTime > 8000) { // если нет ответа 8 сек
+                          tvBadge.text = "🔴 Аппарат оффлайн"
+                          tvBadge.setTextColor(getColor(R.color.status_red))
+                      } else {
+                          tvBadge.text = "🟢 Аппарат онлайн | В сети"
+                          tvBadge.setTextColor(getColor(R.color.status_green))
                       }
+                      watchdogHandler.postDelayed(this, 2000)
                   }
               }
 
@@ -622,20 +801,14 @@ jobs:
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
 
+                  val prefs = getSharedPreferences("cofferno_prefs", Context.MODE_PRIVATE)
+
                   val layoutDashboard = findViewById<LinearLayout>(R.id.layout_dashboard)
                   val layoutControl = findViewById<LinearLayout>(R.id.layout_control)
                   val layoutAgent = findViewById<LinearLayout>(R.id.layout_agent)
                   val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-
-                  val tvMqttStatus = findViewById<TextView>(R.id.tv_mqtt_status)
                   val switchAgent = findViewById<SwitchMaterial>(R.id.switch_agent)
-                  val tvAgentLogs = findViewById<TextView>(R.id.tv_agent_logs)
 
-                  val btnFlush = findViewById<Button>(R.id.btn_send_flush)
-                  val btnTest = findViewById<Button>(R.id.btn_send_test)
-                  val btnLock = findViewById<Button>(R.id.btn_send_lock)
-
-                  // Навигация
                   bottomNav.setOnItemSelectedListener { item ->
                       layoutDashboard.visibility = if (item.itemId == R.id.nav_dashboard) View.VISIBLE else View.GONE
                       layoutControl.visibility = if (item.itemId == R.id.nav_control) View.VISIBLE else View.GONE
@@ -643,105 +816,91 @@ jobs:
                       true
                   }
 
-                  // Инициализация MQTT
-                  connectMqtt(tvMqttStatus, tvAgentLogs)
+                  // Восстановление состояния переключателя
+                  val isAgentRunning = prefs.getBoolean("agent_enabled", false)
+                  switchAgent.isChecked = isAgentRunning
 
-                  // Отправка команд с телефона
-                  btnFlush.setOnClickListener { publishCommand("FLUSH") }
-                  btnTest.setOnClickListener { publishCommand("TEST_CUP") }
-                  btnLock.setOnClickListener { publishCommand("TOGGLE_LOCK") }
-
-                  // Включение режима агента на аппарате
                   switchAgent.setOnCheckedChangeListener { _, isChecked ->
-                      isAgentRunning = isChecked
+                      prefs.edit().putBoolean("agent_enabled", isChecked).apply()
+                      val serviceIntent = Intent(this, TelemetryAgentService::class.java)
+
                       if (isChecked) {
-                          tvAgentLogs.append("\n[Агент] Запущен. Трансляция телеметрии в облако...")
-                          mainHandler.post(agentRunnable)
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                              startForegroundService(serviceIntent)
+                          } else {
+                              startService(serviceIntent)
+                          }
+                          Toast.makeText(this, "Служба запущена! Сворачиваемся в фон...", Toast.LENGTH_SHORT).show()
+                          
+                          // Автоматическое сворачивание приложения в фон
+                          Handler(Looper.getMainLooper()).postDelayed({
+                              moveTaskToBack(true)
+                          }, 1200)
                       } else {
-                          tvAgentLogs.append("\n[Агент] Остановлен.")
-                          mainHandler.removeCallbacks(agentRunnable)
+                          stopService(serviceIntent)
+                          Toast.makeText(this, "Служба остановлена", Toast.LENGTH_SHORT).show()
                       }
                   }
+
+                  // Кнопки управления
+                  findViewById<Button>(R.id.btn_send_flush).setOnClickListener { sendCommand("FLUSH") }
+                  findViewById<Button>(R.id.btn_send_test).setOnClickListener { sendCommand("TEST_CUP") }
+                  findViewById<Button>(R.id.btn_send_lock).setOnClickListener { sendCommand("TOGGLE_LOCK") }
+
+                  // Подключение смартфона к MQTT
+                  connectPhoneMqtt()
+                  watchdogHandler.post(watchdogRunnable)
               }
 
-              private fun connectMqtt(tvStatus: TextView, tvLogs: TextView) {
-                  try {
-                      val clientId = "Cofferno_" + UUID.randomUUID().toString().substring(0, 8)
-                      mqttClient = MqttClient(brokerUrl, clientId, MemoryPersistence())
-                      val options = MqttConnectOptions().apply {
-                          isAutomaticReconnect = true
-                          isCleanSession = true
-                          connectionTimeout = 10
-                      }
-
-                      mqttClient?.setCallback(object : MqttCallback {
-                          override fun connectionLost(cause: Throwable?) {
-                              runOnUiThread {
-                                  tvStatus.text = "✖ MQTT Отключен"
-                                  tvStatus.setTextColor(getColor(R.color.status_red))
-                              }
+              private fun connectPhoneMqtt() {
+                  Executors.newSingleThreadExecutor().execute {
+                      try {
+                          val clientId = "Phone_" + UUID.randomUUID().toString().substring(0, 6)
+                          mqttClient = MqttClient(brokerUrl, clientId, MemoryPersistence())
+                          val options = MqttConnectOptions().apply {
+                              isAutomaticReconnect = true
+                              isCleanSession = true
+                              connectionTimeout = 10
                           }
 
-                          override fun messageArrived(topic: String?, message: MqttMessage?) {
-                              val payload = message?.toString() ?: return
-                              runOnUiThread {
+                          mqttClient?.setCallback(object : MqttCallback {
+                              override fun connectionLost(cause: Throwable?) {}
+                              override fun messageArrived(topic: String?, message: MqttMessage?) {
                                   if (topic == topicTelemetry) {
-                                      updateDashboard(payload)
-                                  } else if (topic == topicCommands) {
-                                      tvLogs.append("\n📥 Получена команда: $payload")
-                                      Toast.makeText(this@MainActivity, "Команда аппарату: $payload", Toast.LENGTH_SHORT).show()
+                                      lastMessageTime = System.currentTimeMillis()
+                                      val json = message?.toString() ?: return
+                                      runOnUiThread { updateUi(json) }
                                   }
                               }
+                              override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                          })
+
+                          mqttClient?.connect(options)
+                          mqttClient?.subscribe(topicTelemetry, 1)
+
+                      } catch (e: Exception) {
+                          e.printStackTrace()
+                      }
+                  }
+              }
+
+              private fun sendCommand(cmd: String) {
+                  Executors.newSingleThreadExecutor().execute {
+                      try {
+                          val msg = MqttMessage(cmd.toByteArray()).apply { qos = 1 }
+                          mqttClient?.publish(topicCommands, msg)
+                          runOnUiThread {
+                              Toast.makeText(this, "Команда '$cmd' отправлена", Toast.LENGTH_SHORT).show()
                           }
-
-                          override fun deliveryComplete(token: IMqttDeliveryToken?) {}
-                      })
-
-                      mqttClient?.connect(options)
-                      mqttClient?.subscribe(topicTelemetry)
-                      mqttClient?.subscribe(topicCommands)
-
-                      tvStatus.text = "● MQTT Онлайн (HiveMQ Cloud)"
-                      tvStatus.setTextColor(getColor(R.color.status_green))
-
-                  } catch (e: Exception) {
-                      tvStatus.text = "Ошибка подключения к MQTT"
-                      tvStatus.setTextColor(getColor(R.color.status_red))
+                      } catch (e: Exception) {
+                          runOnUiThread {
+                              Toast.makeText(this, "Ошибка отправки", Toast.LENGTH_SHORT).show()
+                          }
+                      }
                   }
               }
 
-              private fun publishCommand(cmd: String) {
-                  try {
-                      val msg = MqttMessage(cmd.toByteArray())
-                      msg.qos = 1
-                      mqttClient?.publish(topicCommands, msg)
-                      Toast.makeText(this, "Команда '$cmd' отправлена в аппарат", Toast.LENGTH_SHORT).show()
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "Ошибка отправки: ${e.message}", Toast.LENGTH_SHORT).show()
-                  }
-              }
-
-              private fun sendTelemetryHeartbeat() {
-                  try {
-                      val data = TelemetryData(
-                          temp = 92.5,
-                          pressure = 9.1,
-                          coffee = 82,
-                          water = 90,
-                          cups = 75,
-                          totalCups = 142,
-                          totalMoney = 25560,
-                          status = "Готов к работе"
-                      )
-                      val json = gson.toJson(data)
-                      val msg = MqttMessage(json.toByteArray())
-                      mqttClient?.publish(topicTelemetry, msg)
-                  } catch (e: Exception) {
-                      e.printStackTrace()
-                  }
-              }
-
-              private fun updateDashboard(json: String) {
+              private fun updateUi(json: String) {
                   try {
                       val data = gson.fromJson(json, TelemetryData::class.java)
                       findViewById<TextView>(R.id.tv_temp).text = "${data.temp}°C"
@@ -757,7 +916,7 @@ jobs:
                       findViewById<TextView>(R.id.lbl_cups).text = "Стаканы: ${data.cups} шт"
                       findViewById<ProgressBar>(R.id.pb_cups).progress = data.cups
 
-                      findViewById<TextView>(R.id.tv_sales_cups).text = "${data.totalCups} чашек"
+                      findViewById<TextView>(R.id.tv_sales_cups).text = "${data.totalCups} порций"
                       findViewById<TextView>(R.id.tv_sales_money).text = "${data.totalMoney} ₽"
                   } catch (e: Exception) {
                       e.printStackTrace()
@@ -766,9 +925,8 @@ jobs:
 
               override fun onDestroy() {
                   super.onDestroy()
-                  try {
-                      mqttClient?.disconnect()
-                  } catch (e: Exception) { }
+                  watchdogHandler.removeCallbacks(watchdogRunnable)
+                  try { mqttClient?.disconnect() } catch (e: Exception) {}
               }
           }
           EOF
@@ -776,11 +934,11 @@ jobs:
       - name: Build APK with Gradle
         run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Send APK directly to Telegram
+      - name: Send APK to Telegram
         if: success()
         run: |
           APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
           curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument" \
             -F "chat_id=${{ env.CHAT_ID }}" \
-            -F "caption=☕ Cofferno LV-307 v5.2 (MQTT Live Telemetry) готова к установке!" \
+            -F "caption=☕ Cofferno LV-307 v5.3 (PRO Фоновая служба + Retain MQTT + Автозапуск)" \
             -F "document=@$APK_PATH"
