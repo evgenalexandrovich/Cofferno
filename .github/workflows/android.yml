@@ -23,7 +23,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Project
+      - name: Generate Project Files
         run: |
           B=app/src/main
           P=$B/java/com/coffee/telemetry
@@ -396,7 +396,6 @@ jobs:
                       <LinearLayout android:id="@+id/tab_agent" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
                           
-                          <!-- Card: Серийник и служба -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -432,7 +431,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Card: Диагностика CoffeeNet -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
@@ -494,7 +492,7 @@ jobs:
           )
           EOF
 
-          # CoffeeNetReader.kt (Модуль чтения данных CoffeeNet)
+          # CoffeeNetReader.kt
           cat << 'EOF' > $P/CoffeeNetReader.kt
           package com.coffee.telemetry
 
@@ -511,7 +509,6 @@ jobs:
                   val sb = StringBuilder()
                   sb.append("=== СКАНИРОВАНИЕ COFFEENET ===\n")
 
-                  // 1. Поиск установленных пакетов
                   try {
                       val pm = context.packageManager
                       val packages = pm.getInstalledPackages(0)
@@ -529,7 +526,6 @@ jobs:
                       sb.append("Ошибка сканирования пакетов: ${e.message}\n")
                   }
 
-                  // 2. Поиск файлов баз данных на накопителе
                   val possiblePaths = listOf(
                       File(Environment.getExternalStorageDirectory(), "CoffeeNet"),
                       File(Environment.getExternalStorageDirectory(), "coffeebar"),
@@ -548,7 +544,6 @@ jobs:
                       }
                   }
 
-                  // 3. Проверка логов Logcat
                   sb.append("\nПроверка системных логов CoffeeNet:\n")
                   try {
                       val process = Runtime.getRuntime().exec("logcat -d -t 100")
@@ -573,7 +568,7 @@ jobs:
           }
           EOF
 
-          # AgentService.kt (С фоновым слушателем заказов CoffeeNet)
+          # AgentService.kt
           cat << 'EOF' > $P/AgentService.kt
           package com.coffee.telemetry
 
@@ -680,13 +675,12 @@ jobs:
               private fun startCoffeeNetLogcatInterceptor() {
                   logcatExec.execute {
                       try {
-                          Runtime.getRuntime().exec("logcat -c") // очистка буфера
+                          Runtime.getRuntime().exec("logcat -c")
                           val process = Runtime.getRuntime().exec("logcat")
                           val reader = BufferedReader(InputStreamReader(process.inputStream))
                           var line: String?
                           while (wakeLock?.isHeld == true && reader.readLine().also { line = it } != null) {
                               val l = line ?: continue
-                              // Перехват событий покупки CoffeeNet
                               if (l.contains("makeDrink", ignoreCase = true) || l.contains("orderSuccess", ignoreCase = true) || l.contains("dispense", ignoreCase = true)) {
                                   val matchedDrink = extractDrinkNameFromLog(l)
                                   if (matchedDrink != null) {
@@ -839,6 +833,13 @@ jobs:
           import java.util.concurrent.ConcurrentHashMap
           import java.util.concurrent.Executors
 
+          data class MergedDrink(
+              val name: String,
+              var count: Int,
+              val price: Int,
+              val cost: Int
+          )
+
           class MainActivity : AppCompatActivity() {
               private val broker = "tcp://broker.hivemq.com:1883"
               private var mqttClient: MqttClient? = null
@@ -971,7 +972,6 @@ jobs:
                       Toast.makeText(this, "Команда блокировки отправлена", Toast.LENGTH_SHORT).show()
                   }
 
-                  // Вкладка "Аппарат"
                   val agentPrefs = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
                   val etAgentSn = findViewById<EditText>(R.id.et_agent_serial)
                   val savedAgentSn = agentPrefs.getString("custom_serial", "") ?: ""
@@ -1005,7 +1005,6 @@ jobs:
                       }
                   }
 
-                  // Сканер CoffeeNet
                   findViewById<Button>(R.id.btn_scan_coffeenet).setOnClickListener {
                       val tvLogs = findViewById<TextView>(R.id.tv_coffeenet_logs)
                       tvLogs.text = "Выполняется глубокое сканирование CoffeeNet..."
@@ -1329,4 +1328,55 @@ jobs:
                   return getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).getInt("cost_$drinkName", 40)
               }
 
-              private fun getSavedMachines(): List<String> 
+              private fun getSavedMachines(): List<String> {
+                  val raw = getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).getString("machines_list", "") ?: ""
+                  return if (raw.isBlank()) emptyList() else raw.split(",").filter { it.isNotBlank() }
+              }
+
+              private fun saveMachines(list: List<String>) {
+                  getSharedPreferences("cofferno_app", Context.MODE_PRIVATE)
+                      .edit().putString("machines_list", list.distinct().joinToString(",")).apply()
+              }
+
+              private fun getMachineName(serial: String): String {
+                  val name = getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).getString("name_$serial", "") ?: ""
+                  return if (name.isNotBlank()) name else "LV-307 ($serial)"
+              }
+
+              private fun saveMachineName(serial: String, name: String) {
+                  getSharedPreferences("cofferno_names", Context.MODE_PRIVATE)
+                      .edit().putString("name_$serial", name).apply()
+              }
+          }
+          EOF
+
+      # 1. Сборка проекта через Gradle
+      - name: Build APK with Gradle
+        run: |
+          gradle assembleDebug --stacktrace
+
+      # 2. Отправка собранного APK в Telegram
+      - name: Send APK to Telegram
+        if: success()
+        run: |
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK_PATH" ]; then
+            echo "Файл найден: $APK_PATH. Отправляем в Telegram..."
+            curl -F chat_id="${{ env.CHAT_ID }}" \
+                 -F document=@"$APK_PATH" \
+                 -F caption="☕ <b>Сборка Cofferno LV-307 готова!</b>%0AВерсия: <code>7.0-COFFEENET</code>" \
+                 -F parse_mode="HTML" \
+                 "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
+          else
+            echo "Ошибка: APK файл не найден по пути $APK_PATH"
+            exit 1
+          fi
+
+      # 3. Отправка сообщения, если сборка провалилась
+      - name: Send Failure Alert to Telegram
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
+               -d "chat_id=${{ env.CHAT_ID }}" \
+               -d "text=❌ <b>Ошибка сборки Cofferno LV-307!</b> Проверьте логи в GitHub Actions." \
+               -d "parse_mode=HTML"
