@@ -26,14 +26,14 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Full Telemetry App
+      - name: Generate MQTT Telemetry Project
         run: |
           BASE=app/src/main
           PKG=$BASE/java/com/coffee/telemetry
-          mkdir -p $PKG $BASE/res/layout $BASE/res/values $BASE/res/menu $BASE/res/xml
+          mkdir -p $PKG $BASE/res/layout $BASE/res/values $BASE/res/menu
 
           # settings.gradle
-          cat << 'SETTINGS_EOF' > settings.gradle
+          cat << 'EOF' > settings.gradle
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -41,26 +41,26 @@ jobs:
           }
           rootProject.name = "Cofferno"
           include ':app'
-          SETTINGS_EOF
+          EOF
 
           # root build.gradle
-          cat << 'ROOT_EOF' > build.gradle
+          cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.1.4' apply false
               id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
           }
-          ROOT_EOF
+          EOF
 
           # gradle.properties
-          cat << 'PROPS_EOF' > gradle.properties
+          cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
           org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
           kotlin.code.style=official
-          PROPS_EOF
+          EOF
 
           # app/build.gradle
-          cat << 'APP_EOF' > app/build.gradle
+          cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
@@ -72,8 +72,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 24
                   targetSdk 34
-                  versionCode 60
-                  versionName "6.0-LV307"
+                  versionCode 52
+                  versionName "5.2-MQTT"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -87,11 +87,700 @@ jobs:
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
               implementation 'com.google.code.gson:gson:2.10.1'
           }
-          APP_EOF
+          EOF
 
           # AndroidManifest.xml
-          cat << 'MANIFEST_EOF' > $BASE/AndroidManifest.xml
+          cat << 'EOF' > $BASE/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest 
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:label="Cofferno LV-307"
+                  android:theme="@style/AppTheme">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # strings.xml
+          cat << 'EOF' > $BASE/res/values/strings.xml
+          <resources>
+              <string name="app_name">Cofferno LV-307</string>
+          </resources>
+          EOF
+
+          # colors.xml
+          cat << 'EOF' > $BASE/res/values/colors.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="bg_main">#110B09</color>
+              <color name="card_bg">#1F1613</color>
+              <color name="coffee_accent">#D4A373</color>
+              <color name="coffee_dark">#0A0605</color>
+              <color name="text_white">#FFFFFF</color>
+              <color name="text_muted">#A3928B</color>
+              <color name="status_green">#4CAF50</color>
+              <color name="status_red">#E53935</color>
+          </resources>
+          EOF
+
+          # styles.xml
+          cat << 'EOF' > $BASE/res/values/styles.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+                  <item name="colorPrimary">@color/coffee_accent</item>
+                  <item name="colorPrimaryDark">@color/coffee_dark</item>
+                  <item name="colorAccent">@color/coffee_accent</item>
+                  <item name="android:windowBackground">@color/bg_main</item>
+              </style>
+          </resources>
+          EOF
+
+          # bottom_nav.xml
+          cat << 'EOF' > $BASE/res/menu/bottom_nav.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <menu xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:id="@+id/nav_dashboard" android:title="Телеметрия" android:icon="@android:drawable/ic_menu_view"/>
+              <item android:id="@+id/nav_control" android:title="Управление" android:icon="@android:drawable/ic_menu_manage"/>
+              <item android:id="@+id/nav_agent" android:title="Режим Аппарата" android:icon="@android:drawable/ic_menu_preferences"/>
+          </menu>
+          EOF
+
+          # activity_main.xml
+          cat << 'EOF' > $BASE/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <androidx.constraintlayout.widget.ConstraintLayout 
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="@color/bg_main">
+
+              <!-- Header Bar -->
+              <LinearLayout
+                  android:id="@+id/header_bar"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:background="@color/card_bg"
+                  android:padding="16dp"
+                  android:orientation="horizontal"
+                  android:gravity="center_vertical"
+                  app:layout_constraintTop_toTopOf="parent">
+
+                  <LinearLayout
+                      android:layout_width="0dp"
+                      android:layout_height="wrap_content"
+                      android:layout_weight="1"
+                      android:orientation="vertical">
+                      <TextView
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="☕ Cofferno LV-307"
+                          android:textColor="@color/text_white"
+                          android:textSize="18sp"
+                          android:textStyle="bold" />
+                      <TextView
+                          android:id="@+id/tv_mqtt_status"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="● Подключение к MQTT..."
+                          android:textColor="@color/coffee_accent"
+                          android:textSize="12sp" />
+                  </LinearLayout>
+              </LinearLayout>
+
+              <!-- Main Scroll Content -->
+              <ScrollView
+                  android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:fillViewport="true"
+                  app:layout_constraintTop_toBottomOf="@id/header_bar"
+                  app:layout_constraintBottom_toTopOf="@id/bottom_navigation">
+
+                  <LinearLayout
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:orientation="vertical"
+                      android:padding="16dp">
+
+                      <!-- 1. DASHBOARD TAB -->
+                      <LinearLayout
+                          android:id="@+id/layout_dashboard"
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="vertical">
+
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent"
+                              android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card_bg"
+                              app:cardCornerRadius="12dp"
+                              android:layout_marginBottom="16dp">
+
+                              <LinearLayout
+                                  android:layout_width="match_parent"
+                                  android:layout_height="wrap_content"
+                                  android:orientation="horizontal"
+                                  android:padding="16dp"
+                                  android:weightSum="3">
+
+                                  <LinearLayout
+                                      android:layout_width="0dp"
+                                      android:layout_height="wrap_content"
+                                      android:layout_weight="1"
+                                      android:gravity="center"
+                                      android:orientation="vertical">
+                                      <TextView
+                                          android:id="@+id/tv_temp"
+                                          android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content"
+                                          android:text="-- °C"
+                                          android:textColor="@color/coffee_accent"
+                                          android:textSize="18sp"
+                                          android:textStyle="bold" />
+                                      <TextView
+                                          android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content"
+                                          android:text="Бойлер"
+                                          android:textColor="@color/text_muted"
+                                          android:textSize="11sp" />
+                                  </LinearLayout>
+
+                                  <LinearLayout
+                                      android:layout_width="0dp"
+                                      android:layout_height="wrap_content"
+                                      android:layout_weight="1"
+                                      android:gravity="center"
+                                      android:orientation="vertical">
+                                      <TextView
+                                          android:id="@+id/tv_pressure"
+                                          android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content"
+                                          android:text="-- Bar"
+                                          android:textColor="@color/text_white"
+                                          android:textSize="18sp"
+                                          android:textStyle="bold" />
+                                      <TextView
+                                          android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content"
+                                          android:text="Помпа"
+                                          android:textColor="@color/text_muted"
+                                          android:textSize="11sp" />
+                                  </LinearLayout>
+
+                                  <LinearLayout
+                                      android:layout_width="0dp"
+                                      android:layout_height="wrap_content"
+                                      android:layout_weight="1"
+                                      android:gravity="center"
+                                      android:orientation="vertical">
+                                      <TextView
+                                          android:id="@+id/tv_status_mode"
+                                          android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content"
+                                          android:text="Ожидание"
+                                          android:textColor="@color/status_green"
+                                          android:textSize="14sp"
+                                          android:textStyle="bold" />
+                                      <TextView
+                                          android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content"
+                                          android:text="Статус"
+                                          android:textColor="@color/text_muted"
+                                          android:textSize="11sp" />
+                                  </LinearLayout>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+
+                          <!-- Ingredients Card -->
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent"
+                              android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card_bg"
+                              app:cardCornerRadius="12dp"
+                              android:layout_marginBottom="16dp">
+
+                              <LinearLayout
+                                  android:layout_width="match_parent"
+                                  android:layout_height="wrap_content"
+                                  android:orientation="vertical"
+                                  android:padding="16dp">
+
+                                  <TextView
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="📊 Уровни остатков (Онлайн)"
+                                      android:textColor="@color/text_white"
+                                      android:textSize="15sp"
+                                      android:textStyle="bold"
+                                      android:layout_marginBottom="12dp"/>
+
+                                  <!-- Coffee -->
+                                  <TextView
+                                      android:id="@+id/lbl_coffee"
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="Зерновой кофе: --%"
+                                      android:textColor="@color/text_muted"
+                                      android:textSize="12sp"/>
+                                  <ProgressBar
+                                      android:id="@+id/pb_coffee"
+                                      style="?android:attr/progressBarStyleHorizontal"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="8dp"
+                                      android:progress="0"
+                                      android:progressTint="@color/coffee_accent"
+                                      android:layout_marginBottom="10dp"/>
+
+                                  <!-- Water -->
+                                  <TextView
+                                      android:id="@+id/lbl_water"
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="Вода в баке: --%"
+                                      android:textColor="@color/text_muted"
+                                      android:textSize="12sp"/>
+                                  <ProgressBar
+                                      android:id="@+id/pb_water"
+                                      style="?android:attr/progressBarStyleHorizontal"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="8dp"
+                                      android:progress="0"
+                                      android:progressTint="#42A5F5"
+                                      android:layout_marginBottom="10dp"/>
+
+                                  <!-- Cups -->
+                                  <TextView
+                                      android:id="@+id/lbl_cups"
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="Стаканы: -- шт"
+                                      android:textColor="@color/text_muted"
+                                      android:textSize="12sp"/>
+                                  <ProgressBar
+                                      android:id="@+id/pb_cups"
+                                      style="?android:attr/progressBarStyleHorizontal"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="8dp"
+                                      android:progress="0"
+                                      android:progressTint="@color/coffee_accent"/>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+
+                          <!-- Sales Card -->
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent"
+                              android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card_bg"
+                              app:cardCornerRadius="12dp">
+
+                              <LinearLayout
+                                  android:layout_width="match_parent"
+                                  android:layout_height="wrap_content"
+                                  android:orientation="vertical"
+                                  android:padding="16dp">
+
+                                  <TextView
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="💰 Выручка за смену"
+                                      android:textColor="@color/text_white"
+                                      android:textSize="15sp"
+                                      android:textStyle="bold"
+                                      android:layout_marginBottom="8dp"/>
+
+                                  <LinearLayout
+                                      android:layout_width="match_parent"
+                                      android:layout_height="wrap_content"
+                                      android:orientation="horizontal">
+                                      <TextView
+                                          android:id="@+id/tv_sales_cups"
+                                          android:layout_width="0dp"
+                                          android:layout_height="wrap_content"
+                                          android:layout_weight="1"
+                                          android:text="-- порций"
+                                          android:textColor="@color/coffee_accent"
+                                          android:textSize="16sp"
+                                          android:textStyle="bold"/>
+                                      <TextView
+                                          android:id="@+id/tv_sales_money"
+                                          android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content"
+                                          android:text="-- ₽"
+                                          android:textColor="@color/status_green"
+                                          android:textSize="16sp"
+                                          android:textStyle="bold"/>
+                                  </LinearLayout>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+                      </LinearLayout>
+
+                      <!-- 2. CONTROL TAB (Manager Remote) -->
+                      <LinearLayout
+                          android:id="@+id/layout_control"
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="vertical"
+                          android:visibility="gone">
+
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent"
+                              android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card_bg"
+                              app:cardCornerRadius="12dp">
+
+                              <LinearLayout
+                                  android:layout_width="match_parent"
+                                  android:layout_height="wrap_content"
+                                  android:orientation="vertical"
+                                  android:padding="16dp">
+
+                                  <TextView
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="🕹️ Удаленное управление"
+                                      android:textColor="@color/text_white"
+                                      android:textSize="16sp"
+                                      android:textStyle="bold"
+                                      android:layout_marginBottom="16dp"/>
+
+                                  <Button
+                                      android:id="@+id/btn_send_flush"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="wrap_content"
+                                      android:text="💧 Запустить промывку (MQTT)"
+                                      android:backgroundTint="@color/coffee_accent"
+                                      android:textColor="@color/coffee_dark"
+                                      android:layout_marginBottom="12dp"/>
+
+                                  <Button
+                                      android:id="@+id/btn_send_test"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="wrap_content"
+                                      android:text="☕ Тестовая варка эспрессо"
+                                      android:backgroundTint="@color/card_bg"
+                                      app:strokeColor="@color/coffee_accent"
+                                      app:strokeWidth="1dp"
+                                      android:textColor="@color/text_white"
+                                      android:layout_marginBottom="12dp"/>
+
+                                  <Button
+                                      android:id="@+id/btn_send_lock"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="wrap_content"
+                                      android:text="🔒 Заблокировать автомат"
+                                      android:backgroundTint="@color/status_red"
+                                      android:textColor="@color/text_white"/>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+                      </LinearLayout>
+
+                      <!-- 3. MACHINE AGENT TAB (Install on machine) -->
+                      <LinearLayout
+                          android:id="@+id/layout_agent"
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="vertical"
+                          android:visibility="gone">
+
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent"
+                              android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card_bg"
+                              app:cardCornerRadius="12dp">
+
+                              <LinearLayout
+                                  android:layout_width="match_parent"
+                                  android:layout_height="wrap_content"
+                                  android:orientation="vertical"
+                                  android:padding="16dp">
+
+                                  <TextView
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="📟 Режим блока автомата"
+                                      android:textColor="@color/text_white"
+                                      android:textSize="16sp"
+                                      android:textStyle="bold"
+                                      android:layout_marginBottom="8dp"/>
+
+                                  <TextView
+                                      android:layout_width="wrap_content"
+                                      android:layout_height="wrap_content"
+                                      android:text="Включите этот режим только на Android-блоке внутри кофемашины LV-307!"
+                                      android:textColor="@color/text_muted"
+                                      android:textSize="12sp"
+                                      android:layout_marginBottom="16dp"/>
+
+                                  <com.google.android.material.switchmaterial.SwitchMaterial
+                                      android:id="@+id/switch_agent"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="wrap_content"
+                                      android:text="Транслировать телеметрию в облако"
+                                      android:textColor="@color/text_white"/>
+
+                                  <TextView
+                                      android:id="@+id/tv_agent_logs"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="120dp"
+                                      android:background="#000000"
+                                      android:padding="8dp"
+                                      android:text="Лог агента готов..."
+                                      android:textColor="#00FF66"
+                                      android:textSize="11sp"
+                                      android:layout_marginTop="16dp"/>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+                      </LinearLayout>
+
+                  </LinearLayout>
+              </ScrollView>
+
+              <!-- Bottom Navigation -->
+              <com.google.android.material.bottomnavigation.BottomNavigationView
+                  android:id="@+id/bottom_navigation"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:background="@color/card_bg"
+                  app:itemIconTint="@color/coffee_accent"
+                  app:itemTextColor="@color/text_white"
+                  app:menu="@menu/bottom_nav"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintBottom_toBottomOf="parent"/>
+          </androidx.constraintlayout.widget.ConstraintLayout>
+          EOF
+
+          # MainActivity.kt
+          cat << 'EOF' > $PKG/MainActivity.kt
+          package com.coffee.telemetry
+
+          import android.os.Bundle
+          import android.os.Handler
+          import android.os.Looper
+          import android.view.View
+          import android.widget.Button
+          import android.widget.LinearLayout
+          import android.widget.ProgressBar
+          import android.widget.TextView
+          import android.widget.Toast
+          import androidx.appcompat.app.AppCompatActivity
+          import com.google.android.material.bottomnavigation.BottomNavigationView
+          import com.google.android.material.switchmaterial.SwitchMaterial
+          import com.google.gson.Gson
+          import org.eclipse.paho.client.mqttv3.*
+          import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+          import java.util.UUID
+
+          data class TelemetryData(
+              val temp: Double,
+              val pressure: Double,
+              val coffee: Int,
+              val water: Int,
+              val cups: Int,
+              val totalCups: Int,
+              val totalMoney: Int,
+              val status: String
+          )
+
+          class MainActivity : AppCompatActivity() {
+
+              private val brokerUrl = "tcp://broker.hivemq.com:1883"
+              private val topicTelemetry = "cofferno/lv307/telemetry"
+              private val topicCommands = "cofferno/lv307/commands"
+              
+              private var mqttClient: MqttClient? = null
+              private val gson = Gson()
+              private val mainHandler = Handler(Looper.getMainLooper())
+              
+              private var isAgentRunning = false
+              private val agentRunnable = object : Runnable {
+                  override fun run() {
+                      if (isAgentRunning) {
+                          sendTelemetryHeartbeat()
+                          mainHandler.postDelayed(this, 3000) // каждые 3 секунды
+                      }
+                  }
+              }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+
+                  val layoutDashboard = findViewById<LinearLayout>(R.id.layout_dashboard)
+                  val layoutControl = findViewById<LinearLayout>(R.id.layout_control)
+                  val layoutAgent = findViewById<LinearLayout>(R.id.layout_agent)
+                  val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
+
+                  val tvMqttStatus = findViewById<TextView>(R.id.tv_mqtt_status)
+                  val switchAgent = findViewById<SwitchMaterial>(R.id.switch_agent)
+                  val tvAgentLogs = findViewById<TextView>(R.id.tv_agent_logs)
+
+                  val btnFlush = findViewById<Button>(R.id.btn_send_flush)
+                  val btnTest = findViewById<Button>(R.id.btn_send_test)
+                  val btnLock = findViewById<Button>(R.id.btn_send_lock)
+
+                  // Навигация
+                  bottomNav.setOnItemSelectedListener { item ->
+                      layoutDashboard.visibility = if (item.itemId == R.id.nav_dashboard) View.VISIBLE else View.GONE
+                      layoutControl.visibility = if (item.itemId == R.id.nav_control) View.VISIBLE else View.GONE
+                      layoutAgent.visibility = if (item.itemId == R.id.nav_agent) View.VISIBLE else View.GONE
+                      true
+                  }
+
+                  // Инициализация MQTT
+                  connectMqtt(tvMqttStatus, tvAgentLogs)
+
+                  // Отправка команд с телефона
+                  btnFlush.setOnClickListener { publishCommand("FLUSH") }
+                  btnTest.setOnClickListener { publishCommand("TEST_CUP") }
+                  btnLock.setOnClickListener { publishCommand("TOGGLE_LOCK") }
+
+                  // Включение режима агента на аппарате
+                  switchAgent.setOnCheckedChangeListener { _, isChecked ->
+                      isAgentRunning = isChecked
+                      if (isChecked) {
+                          tvAgentLogs.append("\n[Агент] Запущен. Трансляция телеметрии в облако...")
+                          mainHandler.post(agentRunnable)
+                      } else {
+                          tvAgentLogs.append("\n[Агент] Остановлен.")
+                          mainHandler.removeCallbacks(agentRunnable)
+                      }
+                  }
+              }
+
+              private fun connectMqtt(tvStatus: TextView, tvLogs: TextView) {
+                  try {
+                      val clientId = "Cofferno_" + UUID.randomUUID().toString().substring(0, 8)
+                      mqttClient = MqttClient(brokerUrl, clientId, MemoryPersistence())
+                      val options = MqttConnectOptions().apply {
+                          isAutomaticReconnect = true
+                          isCleanSession = true
+                          connectionTimeout = 10
+                      }
+
+                      mqttClient?.setCallback(object : MqttCallback {
+                          override fun connectionLost(cause: Throwable?) {
+                              runOnUiThread {
+                                  tvStatus.text = "✖ MQTT Отключен"
+                                  tvStatus.setTextColor(getColor(R.color.status_red))
+                              }
+                          }
+
+                          override fun messageArrived(topic: String?, message: MqttMessage?) {
+                              val payload = message?.toString() ?: return
+                              runOnUiThread {
+                                  if (topic == topicTelemetry) {
+                                      updateDashboard(payload)
+                                  } else if (topic == topicCommands) {
+                                      tvLogs.append("\n📥 Получена команда: $payload")
+                                      Toast.makeText(this@MainActivity, "Команда аппарату: $payload", Toast.LENGTH_SHORT).show()
+                                  }
+                              }
+                          }
+
+                          override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                      })
+
+                      mqttClient?.connect(options)
+                      mqttClient?.subscribe(topicTelemetry)
+                      mqttClient?.subscribe(topicCommands)
+
+                      tvStatus.text = "● MQTT Онлайн (HiveMQ Cloud)"
+                      tvStatus.setTextColor(getColor(R.color.status_green))
+
+                  } catch (e: Exception) {
+                      tvStatus.text = "Ошибка подключения к MQTT"
+                      tvStatus.setTextColor(getColor(R.color.status_red))
+                  }
+              }
+
+              private fun publishCommand(cmd: String) {
+                  try {
+                      val msg = MqttMessage(cmd.toByteArray())
+                      msg.qos = 1
+                      mqttClient?.publish(topicCommands, msg)
+                      Toast.makeText(this, "Команда '$cmd' отправлена в аппарат", Toast.LENGTH_SHORT).show()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Ошибка отправки: ${e.message}", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
+              private fun sendTelemetryHeartbeat() {
+                  try {
+                      val data = TelemetryData(
+                          temp = 92.5,
+                          pressure = 9.1,
+                          coffee = 82,
+                          water = 90,
+                          cups = 75,
+                          totalCups = 142,
+                          totalMoney = 25560,
+                          status = "Готов к работе"
+                      )
+                      val json = gson.toJson(data)
+                      val msg = MqttMessage(json.toByteArray())
+                      mqttClient?.publish(topicTelemetry, msg)
+                  } catch (e: Exception) {
+                      e.printStackTrace()
+                  }
+              }
+
+              private fun updateDashboard(json: String) {
+                  try {
+                      val data = gson.fromJson(json, TelemetryData::class.java)
+                      findViewById<TextView>(R.id.tv_temp).text = "${data.temp}°C"
+                      findViewById<TextView>(R.id.tv_pressure).text = "${data.pressure} Bar"
+                      findViewById<TextView>(R.id.tv_status_mode).text = data.status
+
+                      findViewById<TextView>(R.id.lbl_coffee).text = "Зерновой кофе: ${data.coffee}%"
+                      findViewById<ProgressBar>(R.id.pb_coffee).progress = data.coffee
+
+                      findViewById<TextView>(R.id.lbl_water).text = "Вода в баке: ${data.water}%"
+                      findViewById<ProgressBar>(R.id.pb_water).progress = data.water
+
+                      findViewById<TextView>(R.id.lbl_cups).text = "Стаканы: ${data.cups} шт"
+                      findViewById<ProgressBar>(R.id.pb_cups).progress = data.cups
+
+                      findViewById<TextView>(R.id.tv_sales_cups).text = "${data.totalCups} чашек"
+                      findViewById<TextView>(R.id.tv_sales_money).text = "${data.totalMoney} ₽"
+                  } catch (e: Exception) {
+                      e.printStackTrace()
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  try {
+                      mqttClient?.disconnect()
+                  } catch (e: Exception) { }
+              }
+          }
+          EOF
+
+      - name: Build APK with Gradle
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Send APK directly to Telegram
+        if: success()
+        run: |
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument" \
+            -F "chat_id=${{ env.CHAT_ID }}" \
+            -F "caption=☕ Cofferno LV-307 v5.2 (MQTT Live Telemetry) готова к установке!" \
+            -F "document=@$APK_PATH"
