@@ -69,8 +69,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 64
-                  versionName "6.4-PRO"
+                  versionCode 65
+                  versionName "6.5-STABLE"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -122,7 +122,7 @@ jobs:
           </manifest>
           EOF
 
-          # strings.xml & colors.xml
+          # strings.xml & colors.xml & styles.xml
           cat << 'EOF' > $B/res/values/strings.xml
           <resources><string name="app_name">Cofferno LV-307</string></resources>
           EOF
@@ -210,7 +210,6 @@ jobs:
                       <LinearLayout android:id="@+id/tab_sales" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical">
 
-                          <!-- Summary Card -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -249,7 +248,6 @@ jobs:
                               android:text="📊 Продажи по напиткам (Онлайн)" android:textColor="@color/white"
                               android:textSize="14sp" android:textStyle="bold" android:layout_marginBottom="8dp"/>
 
-                          <!-- Dynamic Drink List Container -->
                           <LinearLayout android:id="@+id/ll_drinks_container" android:layout_width="match_parent"
                               android:layout_height="wrap_content" android:orientation="vertical"/>
                       </LinearLayout>
@@ -258,7 +256,6 @@ jobs:
                       <LinearLayout android:id="@+id/tab_manage" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
 
-                          <!-- Machine Selection & Renaming Card -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -290,7 +287,6 @@ jobs:
                                       android:layout_height="wrap_content" android:orientation="vertical"
                                       android:layout_marginTop="4dp"/>
 
-                                  <!-- Rename active machine -->
                                   <LinearLayout android:id="@+id/layout_rename" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:orientation="horizontal"
                                       android:layout_marginTop="12dp">
@@ -306,7 +302,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Cost Settings Card -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -325,7 +320,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Machine Commands Card -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
@@ -491,10 +485,10 @@ jobs:
                   val json = prefs.getString("drinks_json", "")
                   if (!json.isNullOrEmpty()) {
                       try {
-                          return gson.fromJson(json, object : TypeToken<MutableList<DrinkItem>>() {}.type)
+                          val list: MutableList<DrinkItem>? = gson.fromJson(json, object : TypeToken<MutableList<DrinkItem>>() {}.type)
+                          if (list != null) return list
                       } catch (e: Exception) {}
                   }
-                  // Меню по умолчанию
                   return mutableListOf(
                       DrinkItem(0, "Эспрессо", 42, 120),
                       DrinkItem(1, "Капучино", 56, 180),
@@ -530,7 +524,6 @@ jobs:
                                   }
                                   client?.connect(options)
                                   
-                                  // Слушаем команды
                                   client?.subscribe("cofferno/$sn/cmd", 1)
                                   client?.setCallback(object : MqttCallback {
                                       override fun connectionLost(cause: Throwable?) {}
@@ -539,7 +532,7 @@ jobs:
                                           when (cmd) {
                                               "RESET_COUNTERS" -> {
                                                   resetCounters()
-                                                  sendHeartbeat() // Мгновенный сброс в ноль!
+                                                  sendHeartbeat()
                                               }
                                               "FLUSH" -> {}
                                               "TOGGLE_LOCK" -> {}
@@ -676,7 +669,6 @@ jobs:
                       true
                   }
 
-                  // 1. Инициализация выбранного аппарата
                   val machines = getSavedMachines()
                   if (machines.isNotEmpty()) {
                       currentSelectedSerial = machines[0]
@@ -684,7 +676,6 @@ jobs:
                   updateHeaderActiveMachine()
                   renderMachineSelectorList()
 
-                  // 2. Добавление нового аппарата
                   findViewById<Button>(R.id.btn_add_machine).setOnClickListener {
                       val sn = findViewById<EditText>(R.id.et_new_serial).text.toString().trim().lowercase()
                       if (sn.isNotEmpty()) {
@@ -702,7 +693,6 @@ jobs:
                       }
                   }
 
-                  // 3. Переименование текущего аппарата
                   findViewById<Button>(R.id.btn_save_name).setOnClickListener {
                       val newName = findViewById<EditText>(R.id.et_custom_name).text.toString().trim()
                       if (currentSelectedSerial.isNotEmpty() && newName.isNotEmpty()) {
@@ -714,7 +704,6 @@ jobs:
                       }
                   }
 
-                  // 4. Команды аппарату
                   findViewById<Button>(R.id.btn_reset_counters).setOnClickListener {
                       if (currentSelectedSerial.isEmpty()) {
                           Toast.makeText(this, "Выберите аппарат!", Toast.LENGTH_SHORT).show()
@@ -732,7 +721,6 @@ jobs:
                       Toast.makeText(this, "Команда блокировки отправлена", Toast.LENGTH_SHORT).show()
                   }
 
-                  // 5. Вкладка "Аппарат" (Agent)
                   val agentPrefs = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
                   val etAgentSn = findViewById<EditText>(R.id.et_agent_serial)
                   val savedAgentSn = agentPrefs.getString("custom_serial", "") ?: ""
@@ -766,7 +754,6 @@ jobs:
                       }
                   }
 
-                  // Сохранение себестоимости
                   findViewById<Button>(R.id.btn_save_all_costs).setOnClickListener {
                       saveAllCosts()
                       Toast.makeText(this, "Себестоимость сохранена!", Toast.LENGTH_SHORT).show()
@@ -854,7 +841,6 @@ jobs:
                                       override fun deliveryComplete(token: IMqttDeliveryToken?) {}
                                   })
 
-                                  // Подписка на все аппараты
                                   for (sn in getSavedMachines()) {
                                       mqttClient?.subscribe("cofferno/$sn/data", 1)
                                   }
@@ -893,7 +879,6 @@ jobs:
                       totalProfit += profit
                       totalCups += d.count
 
-                      // Карточка напитка
                       val card = MaterialCardView(this).apply {
                           setCardBackgroundColor(c(R.color.card))
                           radius = 16f
@@ -960,7 +945,7 @@ jobs:
 
               private fun renderCostInputs(packet: TelemetryPacket) {
                   val container = findViewById<LinearLayout>(R.id.ll_costs_container)
-                  if (container.childCount > 0) return // уже отрисованы
+                  if (container.childCount > 0) return
 
                   for (d in packet.drinks) {
                       val row = LinearLayout(this).apply {
@@ -998,7 +983,7 @@ jobs:
                       val et = row?.getChildAt(1) as? EditText
                       val drinkName = et?.tag as? String
                       val costVal = et?.text.toString().toIntOrNull() ?: 35
-                      if (!drinkName.isNullEmpty()) {
+                      if (!drinkName.isNullOrEmpty()) {
                           prefs.putInt("cost_$drinkName", costVal)
                       }
                   }
@@ -1047,7 +1032,7 @@ jobs:
             echo "Файл найден: $APK_PATH. Отправляем в Telegram..."
             RESP=$(curl -s -X POST \
               -F "chat_id=${{ env.CHAT_ID }}" \
-              -F "caption=☕ Cofferno LV-307 v6.4 (Динамическое меню + Переименование + Надежный сброс)" \
+              -F "caption=☕ Cofferno LV-307 v6.5 (Исправлено + Готово к установке)" \
               -F "document=@$APK_PATH" \
               "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument")
             echo "Ответ сервера: $RESP"
@@ -1061,4 +1046,4 @@ jobs:
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
             -d "chat_id=${{ env.CHAT_ID }}" \
-            -d "text=❌ Ошибка сборки Cofferno v6.4. Проверьте вкладку Actions."
+            -d "text=❌ Ошибка сборки Cofferno v6.5. Проверьте вкладку Actions."
