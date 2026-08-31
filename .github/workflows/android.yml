@@ -35,14 +35,23 @@ jobs:
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-          # 1. settings.gradle
+          # 1. settings.gradle (Добавлены стабильные репозитории и зеркала)
           cat << 'EOF' > settings.gradle
           pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
+              repositories {
+                  google()
+                  mavenCentral()
+                  maven { url "https://repo.eclipse.org/content/repositories/paho-releases/" }
+                  maven { url "https://plugins.gradle.org/m2/" }
+              }
           }
           rootProject.name = "Cofferno"
           include ':app'
@@ -60,7 +69,7 @@ jobs:
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
-          org.gradle.jvmargs=-Xmx2048m
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           EOF
 
           # 4. app/build.gradle
@@ -204,39 +213,40 @@ jobs:
           }
           EOF
 
+      # 6. Сборка с флагом --no-daemon
       - name: Build Android APK
         run: |
           gradle wrapper
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
+      # 7. Поиск и отправка файла в Telegram
       - name: Find and Send APK to Telegram
         if: success()
         run: |
           APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           
           if [ -z "$APK_PATH" ]; then
-            echo "❌ ОШИБКА: Файл APK не найден в app/build/outputs/apk/debug!"
+            echo "❌ ОШИБКА: Файл APK не найден!"
             exit 1
           fi
           
           echo "Найден APK: $APK_PATH"
           echo "Размер: $(ls -lh $APK_PATH | awk '{print $5}')"
           
-          # Отправка с выводом ответа
           RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q/sendDocument" \
             -F "chat_id=864227156" \
-            -F "caption=☕ Сборка Cofferno v4.6 готова!" \
+            -F "caption=☕ Cofferno v4.6 готов к установке!" \
             -F "document=@$APK_PATH")
             
-          echo "Ответ от Telegram: $RESPONSE"
+          echo "Ответ Telegram: $RESPONSE"
           
-          # Если Telegram вернул "ok":false — роняем сборку с ошибкой
           if echo "$RESPONSE" | grep -q '"ok":false'; then
-            echo "❌ Telegram API отклонил отправку файла!"
+            echo "❌ Telegram отклонил отправку файла!"
             exit 1
           fi
 
-      - name: Upload APK to GitHub Artifacts (Резервный вариант)
+      # 8. Резервный шаг: выгрузка в артефакты GitHub
+      - name: Upload APK to Artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
