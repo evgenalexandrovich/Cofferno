@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
 
 env:
-  BOT_TOKEN: "8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q"
-  CHAT_ID: "864227156"
+  BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
 jobs:
   build:
@@ -15,24 +15,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install Requests
-        run: pip install requests
-
       - name: Notify Start
         run: |
-          python3 - << 'EOF'
-          import os, requests
-          requests.post(
-              f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendMessage",
-              json={"chat_id": os.environ["CHAT_ID"],
-                    "text": "☕ Cofferno LV-307: Сборка началась..."}
-          )
-          EOF
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${CHAT_ID}" \
+            -d "text=☕ Cofferno LV-307 v5.0: Сборка началась..."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -45,13 +32,19 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Project Files
+      - name: Generate Complete Project
         run: |
           BASE=app/src/main
           PKG=$BASE/java/com/coffee/telemetry
-          mkdir -p $PKG $BASE/res/layout $BASE/res/values $BASE/res/menu
+          
+          # Создаём все директории
+          mkdir -p $PKG/{data/{model,repository,remote},ui/{auth,dashboard,machines,settings,stats},service,util}
+          mkdir -p $BASE/res/{layout,values,values-night,menu,drawable,xml,navigation}
 
-          # === settings.gradle ===
+          # ============================================================
+          # GRADLE CONFIGS
+          # ============================================================
+
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories { google(); mavenCentral(); gradlePluginPortal() }
@@ -64,7 +57,6 @@ jobs:
           include ':app'
           EOF
 
-          # === build.gradle (root) ===
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.1.4' apply false
@@ -72,15 +64,13 @@ jobs:
           }
           EOF
 
-          # === gradle.properties ===
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
-          org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
           kotlin.code.style=official
           EOF
 
-          # === app/build.gradle ===
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -96,66 +86,203 @@ jobs:
                   versionCode 50
                   versionName "5.0-LV307"
               }
+              buildTypes {
+                  release {
+                      minifyEnabled true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+                  debug {
+                      applicationIdSuffix ".debug"
+                      versionNameSuffix "-debug"
+                  }
+              }
+              flavorDimensions "device"
+              productFlavors {
+                  machine {
+                      dimension "device"
+                      applicationIdSuffix ".machine"
+                      versionNameSuffix "-MACHINE"
+                      buildConfigField "boolean", "IS_MACHINE_MODE", "true"
+                      buildConfigField "String", "DEVICE_ROLE", '"MACHINE"'
+                  }
+                  phone {
+                      dimension "device"
+                      applicationIdSuffix ".phone"
+                      versionNameSuffix "-PHONE"
+                      buildConfigField "boolean", "IS_MACHINE_MODE", "false"
+                      buildConfigField "String", "DEVICE_ROLE", '"PHONE"'
+                  }
+              }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
               kotlinOptions { jvmTarget = '17' }
-              buildFeatures { viewBinding true }
+              buildFeatures {
+                  viewBinding true
+                  buildConfig true
+              }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+              implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+              implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
+              implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+              implementation 'androidx.navigation:navigation-fragment-ktx:2.7.7'
+              implementation 'androidx.navigation:navigation-ui-ktx:2.7.7'
+              implementation 'androidx.recyclerview:recyclerview:1.3.2'
+              implementation 'androidx.cardview:cardview:1.0.0'
+              implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
               implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+              implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+              implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+              implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
               implementation 'com.google.code.gson:gson:2.10.1'
+              implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+              implementation 'androidx.work:work-runtime-ktx:2.9.0'
+              implementation 'androidx.preference:preference-ktx:1.2.1'
           }
           EOF
 
-          # === AndroidManifest.xml ===
+          cat << 'EOF' > app/proguard-rules.pro
+          -keepclassmembers class com.coffee.telemetry.data.model.** { *; }
+          -keep class com.coffee.telemetry.data.remote.** { *; }
+          EOF
+
+          # ============================================================
+          # MANIFEST
+          # ============================================================
+
           cat << 'EOF' > $BASE/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+
               <application
+                  android:name=".CoffernoApp"
                   android:allowBackup="true"
                   android:icon="@android:drawable/sym_def_app_icon"
                   android:label="@string/app_name"
-                  android:theme="@style/AppTheme">
+                  android:theme="@style/AppTheme"
+                  android:networkSecurityConfig="@xml/network_security_config">
+
                   <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
+                      android:name=".ui.auth.LoginActivity"
+                      android:exported="true"
+                      android:theme="@style/AppTheme.Login">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
+                  <activity android:name=".ui.dashboard.DashboardActivity" />
+                  <activity android:name=".ui.machines.MachineDetailActivity" />
+                  <activity android:name=".ui.stats.StatsActivity" />
+                  <activity android:name=".ui.settings.SettingsActivity" />
+
+                  <service
+                      android:name=".service.TelemetryService"
+                      android:foregroundServiceType="dataSync"
+                      android:exported="false" />
+
+                  <service
+                      android:name=".service.MachineControlService"
+                      android:exported="false" />
+
+                  <receiver
+                      android:name=".service.BootReceiver"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.BOOT_COMPLETED" />
+                      </intent-filter>
+                  </receiver>
+
               </application>
           </manifest>
           EOF
 
-          # === strings.xml ===
+          # ============================================================
+          # RESOURCES
+          # ============================================================
+
+          cat << 'EOF' > $BASE/res/xml/network_security_config.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+              <base-config cleartextTrafficPermitted="false">
+                  <trust-anchors>
+                      <certificates src="system" />
+                  </trust-anchors>
+              </base-config>
+          </network-security-config>
+          EOF
+
           cat << 'EOF' > $BASE/res/values/strings.xml
           <resources>
               <string name="app_name">Cofferno LV-307</string>
               <string name="status_ready">Аппарат готов к работе</string>
+              <string name="login_title">Вход в Cofferno</string>
+              <string name="login_email">Email</string>
+              <string name="login_password">Пароль</string>
+              <string name="login_button">Войти</string>
+              <string name="register_button">Регистрация</string>
+              <string name="dashboard_title">Панель управления</string>
+              <string name="machines_title">Мои кофемашины</string>
+              <string name="stats_title">Статистика</string>
+              <string name="settings_title">Настройки</string>
+              <string name="add_machine">Добавить машину</string>
+              <string name="no_machines">Нет подключённых машин</string>
+              <string name="machine_online">В сети</string>
+              <string name="machine_offline">Не в сети</string>
+              <string name="total_cups">Всего чашек</string>
+              <string name="today_cups">Сегодня</string>
+              <string name="water_level">Уровень воды</string>
+              <string name="bean_level">Уровень зерна</string>
+              <string name="temperature">Температура бойлера</string>
+              <string name="pressure">Давление</string>
+              <string name="notification_channel">Телеметрия</string>
+              <string name="service_running">Мониторинг активен</string>
+              <string name="cmd_brew_espresso">Эспрессо</string>
+              <string name="cmd_brew_americano">Американо</string>
+              <string name="cmd_brew_cappuccino">Капучино</string>
+              <string name="cmd_brew_latte">Латте</string>
+              <string name="cmd_clean">Очистка</string>
+              <string name="cmd_descale">Декальцинация</string>
+              <string name="cmd_power_off">Выключить</string>
           </resources>
           EOF
 
-          # === colors.xml ===
           cat << 'EOF' > $BASE/res/values/colors.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="bg">#1E130F</color>
+              <color name="bg_card">#2B1B17</color>
               <color name="coffee_dark">#2B1B17</color>
               <color name="coffee_primary">#6F4E37</color>
+              <color name="coffee_light">#A0826D</color>
               <color name="coffee_gold">#FFC107</color>
               <color name="white">#FFFFFF</color>
+              <color name="text_primary">#FFFFFF</color>
+              <color name="text_secondary">#B0A090</color>
+              <color name="status_online">#4CAF50</color>
+              <color name="status_offline">#F44336</color>
+              <color name="status_warning">#FF9800</color>
+              <color name="water_blue">#2196F3</color>
+              <color name="temp_red">#FF5722</color>
+              <color name="pressure_purple">#9C27B0</color>
+              <color name="chart_line">#FFC107</color>
+              <color name="nav_bg">#1A0E0A</color>
           </resources>
           EOF
 
-          # === styles.xml ===
           cat << 'EOF' > $BASE/res/values/styles.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -164,98 +291,160 @@ jobs:
                   <item name="colorPrimaryDark">@color/coffee_dark</item>
                   <item name="colorAccent">@color/coffee_gold</item>
                   <item name="android:windowBackground">@color/bg</item>
+                  <item name="android:statusBarColor">@color/coffee_dark</item>
+              </style>
+              <style name="AppTheme.Login">
+                  <item name="android:windowBackground">@color/bg</item>
+              </style>
+              <style name="CardStyle" parent="Widget.MaterialComponents.CardView">
+                  <item name="cardBackgroundColor">@color/bg_card</item>
+                  <item name="cardCornerRadius">16dp</item>
+                  <item name="cardElevation">4dp</item>
+              </style>
+              <style name="GaugeText">
+                  <item name="android:textColor">@color/coffee_gold</item>
+                  <item name="android:textSize">28sp</item>
+                  <item name="android:fontFamily">sans-serif-medium</item>
+              </style>
+              <style name="CommandButton" parent="Widget.MaterialComponents.Button">
+                  <item name="backgroundTint">@color/coffee_primary</item>
+                  <item name="cornerRadius">12dp</item>
+                  <item name="android:textColor">@color/white</item>
               </style>
           </resources>
           EOF
 
-          # === bottom_nav.xml ===
-          cat << 'EOF' > $BASE/res/menu/bottom_nav.xml
+          # === LAYOUTS ===
+
+          cat << 'EOF' > $BASE/res/layout/activity_login.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <menu xmlns:android="http://schemas.android.com/apk/res/android">
-              <item android:id="@+id/nav_dashboard" android:title="Дашборд" android:icon="@android:drawable/ic_menu_view"/>
-              <item android:id="@+id/nav_settings" android:title="Настройки" android:icon="@android:drawable/ic_menu_preferences"/>
-          </menu>
+          <androidx.constraintlayout.widget.ConstraintLayout
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:padding="32dp">
+
+              <TextView
+                  android:id="@+id/title"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="☕"
+                  android:textSize="72sp"
+                  app:layout_constraintTop_toTopOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  android:layout_marginTop="60dp"/>
+
+              <TextView
+                  android:id="@+id/subtitle"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="@string/login_title"
+                  android:textColor="@color/coffee_gold"
+                  android:textSize="24sp"
+                  app:layout_constraintTop_toBottomOf="@id/title"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  android:layout_marginTop="16dp"/>
+
+              <com.google.android.material.textfield.TextInputLayout
+                  android:id="@+id/emailLayout"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="48dp"
+                  app:layout_constraintTop_toBottomOf="@id/subtitle"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:boxStrokeColor="@color/coffee_gold"
+                  app:hintTextColor="@color/coffee_light">
+                  <com.google.android.material.textfield.TextInputEditText
+                      android:id="@+id/emailInput"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:hint="@string/login_email"
+                      android:inputType="textEmailAddress"
+                      android:textColor="@color/white"/>
+              </com.google.android.material.textfield.TextInputLayout>
+
+              <com.google.android.material.textfield.TextInputLayout
+                  android:id="@+id/passwordLayout"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="16dp"
+                  app:layout_constraintTop_toBottomOf="@id/emailLayout"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:passwordToggleEnabled="true"
+                  app:boxStrokeColor="@color/coffee_gold"
+                  app:hintTextColor="@color/coffee_light">
+                  <com.google.android.material.textfield.TextInputEditText
+                      android:id="@+id/passwordInput"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:hint="@string/login_password"
+                      android:inputType="textPassword"
+                      android:textColor="@color/white"/>
+              </com.google.android.material.textfield.TextInputLayout>
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/loginButton"
+                  style="@style/CommandButton"
+                  android:layout_width="0dp"
+                  android:layout_height="56dp"
+                  android:layout_marginTop="32dp"
+                  android:text="@string/login_button"
+                  android:textSize="16sp"
+                  app:layout_constraintTop_toBottomOf="@id/passwordLayout"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"/>
+
+              <com.google.android.material.button.MaterialButton
+                  android:id="@+id/registerButton"
+                  style="@style/Widget.MaterialComponents.Button.TextButton"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="16dp"
+                  android:text="@string/register_button"
+                  android:textColor="@color/coffee_light"
+                  app:layout_constraintTop_toBottomOf="@id/loginButton"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"/>
+
+              <ProgressBar
+                  android:id="@+id/progressBar"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:visibility="gone"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintTop_toBottomOf="@id/registerButton"/>
+          </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
-          # === activity_main.xml ===
-          cat << 'EOF' > $BASE/res/layout/activity_main.xml
+          cat << 'EOF' > $BASE/res/layout/activity_dashboard.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <androidx.constraintlayout.widget.ConstraintLayout 
+          <androidx.constraintlayout.widget.ConstraintLayout
               xmlns:android="http://schemas.android.com/apk/res/android"
               xmlns:app="http://schemas.android.com/apk/res-auto"
               android:layout_width="match_parent"
               android:layout_height="match_parent">
 
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="@string/status_ready"
-                  android:textColor="@color/white"
-                  android:textSize="20sp"
-                  app:layout_constraintBottom_toBottomOf="parent"
-                  app:layout_constraintEnd_toEndOf="parent"
+              <com.google.android.material.appbar.MaterialToolbar
+                  android:id="@+id/toolbar"
+                  android:layout_width="0dp"
+                  android:layout_height="?attr/actionBarSize"
+                  android:background="@color/coffee_dark"
+                  app:title="@string/dashboard_title"
+                  app:titleTextColor="@color/coffee_gold"
+                  app:layout_constraintTop_toTopOf="parent"
                   app:layout_constraintStart_toStartOf="parent"
-                  app:layout_constraintTop_toTopOf="parent" />
+                  app:layout_constraintEnd_toEndOf="parent"/>
 
-              <com.google.android.material.bottomnavigation.BottomNavigationView
-                  android:id="@+id/bottom_navigation"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  app:menu="@menu/bottom_nav"
-                  app:layout_constraintBottom_toBottomOf="parent"/>
-          </androidx.constraintlayout.widget.ConstraintLayout>
-          EOF
-
-          # === MainActivity.kt ===
-          cat << 'EOF' > $PKG/MainActivity.kt
-          package com.coffee.telemetry
-
-          import android.os.Bundle
-          import androidx.appcompat.app.AppCompatActivity
-
-          class MainActivity : AppCompatActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  setContentView(R.layout.activity_main)
-              }
-          }
-          EOF
-
-      - name: Build APK with Gradle
-        run: gradle assembleDebug --stacktrace
-
-      - name: Send APK to Telegram
-        if: success()
-        run: |
-          python3 - << 'EOF'
-          import os, requests
-
-          token = os.environ["BOT_TOKEN"]
-          chat_id = os.environ["CHAT_ID"]
-          apk_path = "app/build/outputs/apk/debug/app-debug.apk"
-
-          if os.path.exists(apk_path):
-              url = f"https://api.telegram.org/bot{token}/sendDocument"
-              with open(apk_path, "rb") as file:
-                  response = requests.post(
-                      url,
-                      data={"chat_id": chat_id, "caption": "✅ Сборка успешна!\n📱 Cofferno LV-307 v5.0 (Debug APK)"},
-                      files={"document": file}
-                  )
-              print("Telegram Response:", response.json())
-          else:
-              print("Ошибка: Файл APK не найден по пути:", apk_path)
-              exit(1)
-          EOF
-
-      - name: Notify Failure
-        if: failure()
-        run: |
-          python3 - << 'EOF'
-          import os, requests
-          requests.post(
-              f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendMessage",
-              json={"chat_id": os.environ["CHAT_ID"],
-                    "text": "❌ Ошибка компиляции Cofferno LV-307. Проверьте логи GitHub Actions."}
-          )
-          EOF
+              <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                  android:id="@+id/swipeRefresh"
+                  android:layout_width="0dp"
+                  android:layout_height="0dp"
+                  app:layout_constraintTop_toBottomOf="@id/toolbar"
+                  
