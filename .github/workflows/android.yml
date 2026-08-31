@@ -15,7 +15,7 @@ jobs:
         run: |
           curl -s -X POST "https://api.telegram.org/bot8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q/sendMessage" \
             -d "chat_id=864227156" \
-            -d "text=☕ Сборка Cofferno v4.7 (Full UI + MQTT) запущена..."
+            -d "text=☕ Сборка Cofferno v4.6 запущена..."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -32,7 +32,6 @@ jobs:
         run: |
           mkdir -p app/src/main/java/com/coffee/telemetry
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/mipmap-anydpi-v26
 
@@ -72,4 +71,181 @@ jobs:
           }
 
           android {
-              namespace 
+              namespace 'com.coffee.telemetry'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.coffee.telemetry"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 6
+                  versionName "4.6-Live"
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.core:core-ktx:1.12.0'
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+              implementation 'com.google.code.gson:gson:2.10.1'
+              implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+          }
+          EOF
+
+          # 5. Resources
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">Cofferno</string>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/colors.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="coffee_dark">#3E2723</color>
+              <color name="coffee_gold">#FFC107</color>
+              <color name="coffee_primary">#6F4E37</color>
+              <color name="bg">#F5F0EB</color>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/styles.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
+                  <item name="colorPrimary">@color/coffee_primary</item>
+                  <item name="colorPrimaryDark">@color/coffee_dark</item>
+                  <item name="colorAccent">@color/coffee_gold</item>
+                  <item name="android:windowBackground">@color/bg</item>
+              </style>
+          </resources>
+          EOF
+
+          # Icon
+          cat << 'EOF' > app/src/main/res/drawable/ic_cofferno_fg.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path
+                  android:fillColor="#FFC107"
+                  android:pathData="M34,46 v22 c0,8 8,14 16,14 h8 c8,0 16,-6 16,-14 V46 H34 z" />
+              <path
+                  android:strokeColor="#FFC107"
+                  android:strokeWidth="4"
+                  android:fillColor="#00000000"
+                  android:pathData="M74,52 h6 c4,0 7,3 7,7 c0,4 -3,7 -7,7 h-6" />
+          </vector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/coffee_dark"/>
+              <foreground android:drawable="@drawable/ic_cofferno_fg"/>
+          </adaptive-icon>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/coffee_dark"/>
+              <foreground android:drawable="@drawable/ic_cofferno_fg"/>
+          </adaptive-icon>
+          EOF
+
+          # Manifest
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="@string/app_name"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:theme="@style/AppTheme">
+                  <activity
+                      android:name="com.coffee.telemetry.MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # Kotlin Activity
+          cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
+          package com.coffee.telemetry
+
+          import android.os.Bundle
+          import androidx.appcompat.app.AppCompatActivity
+
+          class MainActivity : AppCompatActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+              }
+          }
+          EOF
+
+      - name: Build Android APK
+        run: |
+          gradle wrapper
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Find and Send APK to Telegram
+        if: success()
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          
+          if [ -z "$APK_PATH" ]; then
+            echo "❌ ОШИБКА: Файл APK не найден в app/build/outputs/apk/debug!"
+            exit 1
+          fi
+          
+          echo "Найден APK: $APK_PATH"
+          echo "Размер: $(ls -lh $APK_PATH | awk '{print $5}')"
+          
+          # Отправка с выводом ответа
+          RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q/sendDocument" \
+            -F "chat_id=864227156" \
+            -F "caption=☕ Сборка Cofferno v4.6 готова!" \
+            -F "document=@$APK_PATH")
+            
+          echo "Ответ от Telegram: $RESPONSE"
+          
+          # Если Telegram вернул "ok":false — роняем сборку с ошибкой
+          if echo "$RESPONSE" | grep -q '"ok":false'; then
+            echo "❌ Telegram API отклонил отправку файла!"
+            exit 1
+          fi
+
+      - name: Upload APK to GitHub Artifacts (Резервный вариант)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cofferno-APK
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Notify Failure Telegram
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q/sendMessage" \
+            -d "chat_id=864227156" \
+            -d "text=❌ Ошибка сборки Cofferno! Проверьте логи в GitHub Actions."
