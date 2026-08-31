@@ -2,11 +2,12 @@ name: Cofferno LV-307 Build
 
 on:
   push:
+    branches: [ main, master ]
   workflow_dispatch:
 
 env:
-  BOT_TOKEN: "8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q"
-  CHAT_ID: "864227156"
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+  CHAT_ID: ${{ secrets.CHAT_ID }}
 
 jobs:
   build:
@@ -98,6 +99,7 @@ jobs:
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.READ_LOGS"/>
               <application
                   android:allowBackup="true"
                   android:icon="@android:drawable/sym_def_app_icon"
@@ -606,7 +608,6 @@ jobs:
           </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
-          # --- Kotlin sources (ASCII-safe, no volatile smart-cast issues) ---
           cat > $P/Models.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -1626,7 +1627,7 @@ jobs:
                           LinearLayout.LayoutParams.MATCH_PARENT,
                           LinearLayout.LayoutParams.WRAP_CONTENT
                       )
-                      lp.setMargins(0, 0, 0, 12)
+                      lp.setMargins(0, 0, 12, 12)
                       card.layoutParams = lp
                       val colLay = LinearLayout(this)
                       colLay.orientation = LinearLayout.VERTICAL
@@ -1744,7 +1745,6 @@ jobs:
       - name: Send compile errors to Telegram
         if: failure()
         run: |
-          # Extract real Kotlin/Java errors
           {
             echo "Cofferno BUILD FAILED"
             echo "---- e: lines ----"
@@ -1752,12 +1752,12 @@ jobs:
             echo "---- tail ----"
             tail -n 40 build.log || true
           } > errors.txt
-          # Telegram text limit ~4096
           python3 - << 'PY'
           import urllib.parse, urllib.request, os
           text = open("errors.txt","r",errors="ignore").read()[:3500]
-          token = os.environ["BOT_TOKEN"]
-          chat = os.environ["CHAT_ID"]
-          data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
-          urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+          token = os.environ.get("BOT_TOKEN", "")
+          chat = os.environ.get("CHAT_ID", "")
+          if token and chat:
+              data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
+              urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
           PY
