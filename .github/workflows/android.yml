@@ -29,18 +29,17 @@ jobs:
           P=$B/java/com/coffee/telemetry
           mkdir -p $P $B/res/layout $B/res/values $B/res/menu
 
-          # settings.gradle
           cat << 'EOF' > settings.gradle
-          pluginManagement { 
-              repositories { 
+          pluginManagement {
+              repositories {
                   google()
                   mavenCentral()
-                  gradlePluginPortal() 
-              } 
+                  gradlePluginPortal()
+              }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-              repositories { 
+              repositories {
                   google()
                   mavenCentral()
               }
@@ -49,7 +48,6 @@ jobs:
           include ':app'
           EOF
 
-          # root build.gradle
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.2.2' apply false
@@ -57,7 +55,6 @@ jobs:
           }
           EOF
 
-          # gradle.properties
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
@@ -65,7 +62,6 @@ jobs:
           kotlin.code.style=official
           EOF
 
-          # app/build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -78,19 +74,17 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 70
-                  versionName "7.0-COFFEENET"
+                  versionCode 71
+                  versionName "7.1-LEVENDING-SCAN"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions { 
-                  jvmTarget = '17' 
-              }
-              lint { 
+              kotlinOptions { jvmTarget = '17' }
+              lint {
                   abortOnError false
-                  checkReleaseBuilds false 
+                  checkReleaseBuilds false
               }
           }
           dependencies {
@@ -103,7 +97,6 @@ jobs:
           }
           EOF
 
-          # AndroidManifest.xml
           cat << 'EOF' > $B/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -129,9 +122,9 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-                  <service 
-                      android:name=".AgentService" 
-                      android:enabled="true" 
+                  <service
+                      android:name=".AgentService"
+                      android:enabled="true"
                       android:exported="false"
                       android:foregroundServiceType="dataSync"/>
                   <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
@@ -144,7 +137,6 @@ jobs:
           </manifest>
           EOF
 
-          # strings.xml, colors.xml, styles.xml
           cat << 'EOF' > $B/res/values/strings.xml
           <resources><string name="app_name">Cofferno LV-307</string></resources>
           EOF
@@ -178,7 +170,6 @@ jobs:
           </resources>
           EOF
 
-          # bottom_nav.xml
           cat << 'EOF' > $B/res/menu/bottom_nav.xml
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
@@ -188,7 +179,6 @@ jobs:
           </menu>
           EOF
 
-          # activity_main.xml
           cat << 'EOF' > $B/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <androidx.constraintlayout.widget.ConstraintLayout
@@ -235,8 +225,9 @@ jobs:
                       android:textColor="@color/accent"/>
               </LinearLayout>
 
-              <ScrollView 
-                  android:layout_width="0dp" 
+              <ScrollView
+                  android:id="@+id/main_scroll"
+                  android:layout_width="0dp"
                   android:layout_height="0dp"
                   android:fillViewport="true"
                   app:layout_constraintStart_toStartOf="parent"
@@ -246,7 +237,6 @@ jobs:
                   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                       android:orientation="vertical" android:padding="12dp">
 
-                      <!-- TAB 1: ПРОДАЖИ -->
                       <LinearLayout android:id="@+id/tab_sales" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical">
 
@@ -308,7 +298,6 @@ jobs:
                               android:layout_height="wrap_content" android:orientation="vertical"/>
                       </LinearLayout>
 
-                      <!-- TAB 2: УПРАВЛЕНИЕ -->
                       <LinearLayout android:id="@+id/tab_manage" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
 
@@ -321,7 +310,6 @@ jobs:
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="☕ Управление сетью аппаратов" android:textColor="@color/white"
                                       android:textSize="15sp" android:textStyle="bold" android:layout_marginBottom="8dp"/>
-                                  
                                   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:orientation="horizontal">
                                       <EditText android:id="@+id/et_new_serial" android:layout_width="0dp"
@@ -334,15 +322,12 @@ jobs:
                                           android:backgroundTint="@color/accent" android:textColor="@color/dark"
                                           android:layout_marginStart="8dp"/>
                                   </LinearLayout>
-
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="Список подключенных аппаратов:"
                                       android:textColor="@color/muted" android:textSize="11sp" android:layout_marginTop="10dp"/>
-                                  
                                   <LinearLayout android:id="@+id/ll_machine_selector" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:orientation="vertical"
                                       android:layout_marginTop="4dp"/>
-
                                   <LinearLayout android:id="@+id/layout_rename" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:orientation="horizontal"
                                       android:layout_marginTop="12dp">
@@ -370,10 +355,8 @@ jobs:
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="Укажите себестоимость ингредиентов для расчета чистой прибыли:"
                                       android:textColor="@color/muted" android:textSize="11sp" android:layout_marginBottom="10dp"/>
-
                                   <LinearLayout android:id="@+id/ll_costs_container" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:orientation="vertical"/>
-
                                   <Button android:id="@+id/btn_save_all_costs" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="💾 Сохранить себестоимость"
                                       android:backgroundTint="@color/accent" android:textColor="@color/dark"
@@ -389,22 +372,18 @@ jobs:
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="⚙️ Команды выбранному аппарату" android:textColor="@color/white"
                                       android:textSize="15sp" android:textStyle="bold" android:layout_marginBottom="12dp"/>
-                                  
                                   <Button android:id="@+id/btn_reset_counters" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="🔄 Обнулить счётчики продаж"
                                       android:backgroundTint="@color/yellow" android:textColor="@color/dark"
                                       android:layout_marginBottom="8dp"/>
-
                                   <Button android:id="@+id/btn_remote_reboot" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="⚡ Перезагрузить кофемашину"
                                       android:backgroundTint="@color/orange" android:textColor="@color/white"
                                       android:layout_marginBottom="8dp"/>
-
                                   <Button android:id="@+id/btn_remote_flush" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="💧 Принудительная промывка"
                                       android:backgroundTint="@color/blue" android:textColor="@color/white"
                                       android:layout_marginBottom="8dp"/>
-
                                   <Button android:id="@+id/btn_remote_lock" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="🔒 Заблокировать автомат"
                                       android:backgroundTint="@color/red" android:textColor="@color/white"/>
@@ -412,10 +391,9 @@ jobs:
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
 
-                      <!-- TAB 3: АГЕНТ АППАРАТА -->
                       <LinearLayout android:id="@+id/tab_agent" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
-                          
+
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -425,7 +403,6 @@ jobs:
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="📟 Настройка блока Cofferno LV-307" android:textColor="@color/white"
                                       android:textSize="16sp" android:textStyle="bold" android:layout_marginBottom="8dp"/>
-                                  
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="Задайте реальный заводской серийный номер аппарата:"
                                       android:textColor="@color/muted" android:textSize="12sp" android:layout_marginBottom="4dp"/>
@@ -440,7 +417,6 @@ jobs:
                                           android:backgroundTint="@color/accent" android:textColor="@color/dark"
                                           android:layout_marginStart="8dp"/>
                                   </LinearLayout>
-
                                   <com.google.android.material.switchmaterial.SwitchMaterial
                                       android:id="@+id/switch_agent" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="Фоновая служба телеметрии"
@@ -451,41 +427,54 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
+                          <!-- ДИАГНОСТИКА: большой прокручиваемый экран -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
-                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
+                              android:layout_marginBottom="20dp">
                               <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                                   android:orientation="vertical" android:padding="16dp">
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                      android:text="🔍 Диагностика ПО CoffeeNet" android:textColor="@color/white"
+                                      android:text="🔍 Диагностика LeVending / CoffeeNet" android:textColor="@color/white"
                                       android:textSize="16sp" android:textStyle="bold" android:layout_marginBottom="4dp"/>
-                                  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                      android:text="Проверка обнаружения базы данных и логов CoffeeNet на автомате:"
+                                  <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:text="1) Нажмите «Сканировать»  2) Сделайте продажу  3) Сканируйте ещё раз. Окно ниже можно листать пальцем."
                                       android:textColor="@color/muted" android:textSize="12sp" android:layout_marginBottom="10dp"/>
 
                                   <Button android:id="@+id/btn_scan_coffeenet" android:layout_width="match_parent"
-                                      android:layout_height="wrap_content" android:text="🔎 Сканировать файлы CoffeeNet"
+                                      android:layout_height="wrap_content" android:text="🔎 Сканировать LeVending / логи"
                                       android:backgroundTint="@color/blue" android:textColor="@color/white"/>
 
-                                  <TextView android:id="@+id/tv_coffeenet_logs" android:layout_width="match_parent"
-                                      android:layout_height="180dp" android:background="#000000" android:padding="8dp"
-                                      android:text="Нажмите 'Сканировать файлы CoffeeNet' для проверки..."
-                                      android:textColor="#00FF66" android:textSize="11sp" android:layout_marginTop="10dp"/>
+                                  <!-- ВАЖНО: высота 480dp + свой скролл -->
+                                  <TextView
+                                      android:id="@+id/tv_coffeenet_logs"
+                                      android:layout_width="match_parent"
+                                      android:layout_height="480dp"
+                                      android:layout_marginTop="12dp"
+                                      android:background="#000000"
+                                      android:padding="12dp"
+                                      android:text="Нажмите «Сканировать»...\n\nПосле появления текста прокручивайте ЭТО чёрное окно пальцем вверх/вниз."
+                                      android:textColor="#00FF66"
+                                      android:textSize="12sp"
+                                      android:lineSpacingExtra="2dp"
+                                      android:scrollbars="vertical"
+                                      android:fadeScrollbars="false"
+                                      android:overScrollMode="always"
+                                      android:textIsSelectable="true"
+                                      android:gravity="top|start"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
-
                       </LinearLayout>
-
                   </LinearLayout>
               </ScrollView>
 
               <com.google.android.material.bottomnavigation.BottomNavigationView
-                  android:id="@+id/bottom_nav" 
-                  android:layout_width="0dp" 
+                  android:id="@+id/bottom_nav"
+                  android:layout_width="0dp"
                   android:layout_height="wrap_content"
-                  android:background="@color/card" 
+                  android:background="@color/card"
                   app:itemIconTint="@color/accent"
-                  app:itemTextColor="@color/white" 
+                  app:itemTextColor="@color/white"
                   app:menu="@menu/bottom_nav"
                   app:layout_constraintStart_toStartOf="parent"
                   app:layout_constraintEnd_toEndOf="parent"
@@ -493,7 +482,6 @@ jobs:
           </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
-          # Models.kt
           cat << 'EOF' > $P/Models.kt
           package com.coffee.telemetry
 
@@ -515,7 +503,6 @@ jobs:
           )
           EOF
 
-          # CoffeeNetReader.kt
           cat << 'EOF' > $P/CoffeeNetReader.kt
           package com.coffee.telemetry
 
@@ -529,68 +516,117 @@ jobs:
 
               fun scanCoffeeNetEnvironment(context: Context): String {
                   val sb = StringBuilder()
-                  sb.append("=== СКАНИРОВАНИЕ COFFEENET ===\n")
+                  sb.append("=== СКАНИРОВАНИЕ LEVENDING / COFFEENET ===\n")
+                  sb.append("Время: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(java.util.Date())}\n\n")
 
+                  // 1. Пакеты
+                  sb.append("--- ПРИЛОЖЕНИЯ ---\n")
                   try {
-                      val pm = context.packageManager
-                      val packages = pm.getInstalledPackages(0)
-                      val coffeePackages = packages.filter { 
-                          it.packageName.contains("coffee", ignoreCase = true) || 
-                          it.packageName.contains("yinhe", ignoreCase = true) ||
-                          it.packageName.contains("jetinno", ignoreCase = true) ||
-                          it.packageName.contains("vending", ignoreCase = true)
+                      val packages = context.packageManager.getInstalledPackages(0)
+                      val interesting = packages.filter {
+                          val n = it.packageName.lowercase()
+                          n.contains("coffee") || n.contains("vending") || n.contains("le.") ||
+                              n.contains("levending") || n.contains("yinhe") || n.contains("jetinno") ||
+                              n.contains("vmcoffee") || n.contains("ylpush")
                       }
-                      sb.append("Найдено приложений кофейни: ${coffeePackages.size}\n")
-                      for (p in coffeePackages) {
-                          sb.append(" • Пакет: ${p.packageName}\n")
-                      }
+                      sb.append("Найдено: ${interesting.size}\n")
+                      for (p in interesting) sb.append(" • ${p.packageName}\n")
                   } catch (e: Exception) {
-                      sb.append("Ошибка сканирования пакетов: ${e.message}\n")
+                      sb.append("Ошибка пакетов: ${e.message}\n")
                   }
 
-                  val possiblePaths = listOf(
-                      File(Environment.getExternalStorageDirectory(), "CoffeeNet"),
-                      File(Environment.getExternalStorageDirectory(), "coffeebar"),
-                      File(Environment.getExternalStorageDirectory(), "Android/data/com.coffeenet"),
-                      File(Environment.getExternalStorageDirectory(), "Download"),
-                      File("/data/data/com.coffeenet/databases")
+                  // 2. Папки/файлы
+                  sb.append("\n--- ПАПКИ И ФАЙЛЫ ---\n")
+                  val root = Environment.getExternalStorageDirectory()
+                  val paths = listOf(
+                      File(root, "Download"),
+                      File(root, "Documents"),
+                      File(root, " levending".trim()),
+                      File(root, "LeVending"),
+                      File(root, "levending"),
+                      File(root, "vmcoffee"),
+                      File(root, "VMCoffee"),
+                      File(root, "CoffeeNet"),
+                      File(root, "coffeebar"),
+                      File(root, "Android/data/com.le.vmcoffeestandard"),
+                      File(root, "Android/data/com.le.vmcoffeestandard/files"),
+                      File(root, "Android/data/com.le.vmcoffeestandard/cache"),
+                      File(root, "Android/data/com.le.vmcoffeestandard/databases"),
+                      File(root, "Android/data/com.levending.ylpush"),
+                      File(root, "Android/data/com.levending.ylpush/files"),
+                      File(root, "Android/data/com.coffee.telemetry"),
+                      File("/data/data/com.le.vmcoffeestandard"),
+                      File("/data/data/com.le.vmcoffeestandard/databases"),
+                      File("/data/data/com.le.vmcoffeestandard/files"),
+                      File("/data/data/com.levending.ylpush"),
+                      File("/data/data/com.levending.ylpush/databases")
                   )
-
-                  sb.append("\nПоиск папок и баз данных:\n")
-                  for (dir in possiblePaths) {
-                      if (dir.exists()) {
-                          sb.append("📁 Найдена папка: ${dir.absolutePath}\n")
-                          dir.listFiles()?.forEach { file ->
-                              sb.append("   - ${file.name} (${file.length()} b)\n")
+                  for (dir in paths) {
+                      try {
+                          if (dir.exists()) {
+                              sb.append("📁 ${dir.absolutePath}\n")
+                              listDeep(dir, sb, 0, 2)
                           }
+                      } catch (e: Exception) {
+                          sb.append("⚠ ${dir.absolutePath}: ${e.message}\n")
                       }
                   }
 
-                  sb.append("\nПроверка системных логов CoffeeNet:\n")
+                  // 3. Logcat — расширенный фильтр под LeVending
+                  sb.append("\n--- LOGCAT (последние события) ---\n")
+                  val keys = listOf(
+                      "le", "vending", "vmcoffee", "levending", "ylpush", "drink", "sale",
+                      "pay", "order", "recipe", "product", "vend", "dispense", "success",
+                      "cash", "card", "coffee", "make", "trade", "report", "amount", "price"
+                  )
                   try {
-                      val process = Runtime.getRuntime().exec("logcat -d -t 100")
+                      val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "400"))
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
-                      var count = 0
+                      var total = 0
+                      var shown = 0
                       while (true) {
                           val line = reader.readLine() ?: break
-                          if (line.contains("coffee", ignoreCase = true) || line.contains("order", ignoreCase = true)) {
-                              sb.append("📝 ${line.take(60)}...\n")
-                              count++
-                              if (count > 5) break
+                          total++
+                          val low = line.lowercase()
+                          if (keys.any { low.contains(it) }) {
+                              sb.append("📝 ${line.take(180)}\n")
+                              shown++
+                              if (shown >= 80) break
                           }
                       }
-                      if (count == 0) sb.append("Логи CoffeeNet в фоновом буфере пока пусты.\n")
+                      sb.append("\nВсего строк logcat: $total, подходящих: $shown\n")
+                      if (shown == 0) {
+                          sb.append("Подходящих логов нет.\n")
+                          sb.append("Сделайте продажу и сразу нажмите «Сканировать» ещё раз.\n")
+                      }
                   } catch (e: Exception) {
-                      sb.append("Чтение логов недоступно без Root: ${e.message}\n")
+                      sb.append("Logcat недоступен: ${e.message}\n")
+                      sb.append("(На многих прошивках нужен system/root для полного logcat)\n")
                   }
 
-                  sb.append("\n=== СКАНИРОВАНИЕ ЗАВЕРШЕНО ===")
+                  sb.append("\n=== КОНЕЦ СКАНИРОВАНИЯ ===\n")
+                  sb.append("Прокрутите это окно пальцем вверх/вниз.\n")
                   return sb.toString()
+              }
+
+              private fun listDeep(dir: File, sb: StringBuilder, depth: Int, maxDepth: Int) {
+                  if (depth > maxDepth) return
+                  val files = dir.listFiles() ?: return
+                  val sorted = files.sortedBy { it.name.lowercase() }
+                  for (f in sorted.take(40)) {
+                      val pad = "  ".repeat(depth + 1)
+                      if (f.isDirectory) {
+                          sb.append("$pad📂 ${f.name}/\n")
+                          listDeep(f, sb, depth + 1, maxDepth)
+                      } else {
+                          sb.append("$pad📄 ${f.name} (${f.length()} b)\n")
+                      }
+                  }
+                  if (files.size > 40) sb.append("${"  ".repeat(depth + 1)}... ещё ${files.size - 40} файлов\n")
               }
           }
           EOF
 
-          # AgentService.kt
           cat << 'EOF' > $P/AgentService.kt
           package com.coffee.telemetry
 
@@ -637,7 +673,7 @@ jobs:
                   }
                   val notification = NotificationCompat.Builder(this, ch)
                       .setContentTitle("☕ Cofferno LV-307")
-                      .setContentText("Телеметрия CoffeeNet активна")
+                      .setContentText("Телеметрия активна")
                       .setSmallIcon(android.R.drawable.stat_notify_sync)
                       .setOngoing(true)
                       .build()
@@ -651,7 +687,7 @@ jobs:
                   val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
                   wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:Wake")
                   wakeLock?.acquire(24 * 60 * 60 * 1000L)
-                  
+
                   startAgentLoop()
                   startCoffeeNetLogcatInterceptor()
               }
@@ -670,7 +706,7 @@ jobs:
                       try {
                           val list: MutableList<DrinkItem>? = gson.fromJson(json, object : TypeToken<MutableList<DrinkItem>>() {}.type)
                           if (list != null) return list
-                      } catch (e: Exception) {}
+                      } catch (_: Exception) {}
                   }
                   return mutableListOf(
                       DrinkItem(0, "Эспрессо", 0, 120, 35),
@@ -690,11 +726,8 @@ jobs:
               private fun registerDrinkSale(drinkName: String, price: Int = 150) {
                   val drinks = loadDrinks()
                   val existing = drinks.find { it.name.equals(drinkName, ignoreCase = true) }
-                  if (existing != null) {
-                      existing.count += 1
-                  } else {
-                      drinks.add(DrinkItem(drinks.size, drinkName, 1, price, 40))
-                  }
+                  if (existing != null) existing.count += 1
+                  else drinks.add(DrinkItem(drinks.size, drinkName, 1, price, 40))
                   saveDrinks(drinks)
                   sendHeartbeat()
               }
@@ -707,11 +740,13 @@ jobs:
                           val reader = BufferedReader(InputStreamReader(process.inputStream))
                           while (wakeLock?.isHeld == true) {
                               val line = reader.readLine() ?: break
-                              if (line.contains("makeDrink", ignoreCase = true) || line.contains("orderSuccess", ignoreCase = true) || line.contains("dispense", ignoreCase = true)) {
+                              val low = line.lowercase()
+                              if (low.contains("makedrink") || low.contains("ordersuccess") ||
+                                  low.contains("dispense") || low.contains("sale") ||
+                                  low.contains("vend") || low.contains("pay success") ||
+                                  low.contains("tradesuccess") || low.contains("product")) {
                                   val matchedDrink = extractDrinkNameFromLog(line)
-                                  if (matchedDrink != null) {
-                                      registerDrinkSale(matchedDrink)
-                                  }
+                                  if (matchedDrink != null) registerDrinkSale(matchedDrink)
                               }
                           }
                       } catch (e: Exception) { e.printStackTrace() }
@@ -719,27 +754,28 @@ jobs:
               }
 
               private fun extractDrinkNameFromLog(log: String): String? {
-                  val popularDrinks = listOf("Эспрессо", "Espresso", "Капучино", "Cappuccino", "Латте", "Latte", "Американо", "Americano", "Шоколад", "Chocolate", "Флэт", "Flat White")
-                  for (d in popularDrinks) {
-                      if (log.contains(d, ignoreCase = true)) return d
-                  }
-                  return "Кофе (CoffeeNet)"
+                  val popularDrinks = listOf(
+                      "Эспрессо", "Espresso", "Капучино", "Cappuccino", "Латте", "Latte",
+                      "Американо", "Americano", "Шоколад", "Chocolate", "Флэт", "Flat White"
+                  )
+                  for (d in popularDrinks) if (log.contains(d, ignoreCase = true)) return d
+                  return "Напиток (LeVending)"
               }
 
               private fun resetCounters() {
                   val list = loadDrinks()
-                  for (d in list) { d.count = 0 }
+                  for (d in list) d.count = 0
                   saveDrinks(list)
               }
 
               private fun rebootDevice() {
                   try {
                       Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
-                  } catch (e: Exception) {
+                  } catch (_: Exception) {
                       try {
                           val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
                           pm.reboot(null)
-                      } catch (e2: Exception) { e2.printStackTrace() }
+                      } catch (_: Exception) {}
                   }
               }
 
@@ -756,34 +792,25 @@ jobs:
                                       keepAliveInterval = 30
                                   }
                                   client?.connect(options)
-                                  
                                   client?.subscribe("cofferno/$sn/cmd", 1)
                                   client?.setCallback(object : MqttCallback {
                                       override fun connectionLost(cause: Throwable?) {}
                                       override fun messageArrived(topic: String?, message: MqttMessage?) {
                                           val cmd = message?.toString()?.trim() ?: return
-                                          when {
-                                              cmd == "RESET_COUNTERS" -> {
-                                                  this@AgentService.resetCounters()
-                                                  this@AgentService.sendHeartbeat()
-                                              }
-                                              cmd == "REQUEST_UPDATE" -> {
-                                                  this@AgentService.sendHeartbeat()
-                                              }
-                                              cmd == "REBOOT_MACHINE" -> {
-                                                  this@AgentService.rebootDevice()
-                                              }
+                                          when (cmd) {
+                                              "RESET_COUNTERS" -> { resetCounters(); sendHeartbeat() }
+                                              "REQUEST_UPDATE" -> sendHeartbeat()
+                                              "REBOOT_MACHINE" -> rebootDevice()
                                           }
                                       }
                                       override fun deliveryComplete(token: IMqttDeliveryToken?) {}
                                   })
-
                                   sched?.shutdownNow()
                                   sched = Executors.newSingleThreadScheduledExecutor()
                                   sched?.scheduleAtFixedRate({ sendHeartbeat() }, 0L, 3L, TimeUnit.SECONDS)
                               }
                           } catch (e: Exception) { e.printStackTrace() }
-                          try { Thread.sleep(5000L) } catch (e: Exception) {}
+                          try { Thread.sleep(5000L) } catch (_: Exception) {}
                       }
                   }
               }
@@ -804,14 +831,13 @@ jobs:
 
               override fun onDestroy() {
                   sched?.shutdownNow()
-                  try { client?.disconnect() } catch (e: Exception) {}
+                  try { client?.disconnect() } catch (_: Exception) {}
                   wakeLock?.release()
                   super.onDestroy()
               }
           }
           EOF
 
-          # BootReceiver.kt
           cat << 'EOF' > $P/BootReceiver.kt
           package com.coffee.telemetry
 
@@ -834,7 +860,6 @@ jobs:
           }
           EOF
 
-          # MainActivity.kt
           cat << 'EOF' > $P/MainActivity.kt
           package com.coffee.telemetry
 
@@ -845,6 +870,8 @@ jobs:
           import android.os.Handler
           import android.os.Looper
           import android.provider.Settings
+          import android.text.method.ScrollingMovementMethod
+          import android.view.MotionEvent
           import android.view.View
           import android.widget.*
           import androidx.appcompat.app.AppCompatActivity
@@ -871,10 +898,10 @@ jobs:
               private val gson = Gson()
               private var lastMsgTime = 0L
               private var isMqttConnected = false
-              
+
               private var selectedFilterSerial = "ALL"
               private var currentSelectedSerial = ""
-              
+
               private val machinePackets = ConcurrentHashMap<String, TelemetryPacket>()
               private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -918,17 +945,28 @@ jobs:
                   }
 
                   val machines = getSavedMachines()
-                  if (machines.isNotEmpty()) {
-                      currentSelectedSerial = machines[0]
-                  }
+                  if (machines.isNotEmpty()) currentSelectedSerial = machines[0]
 
                   updateHeaderActiveMachine()
                   renderFilterChips()
                   renderMachineSelectorList()
 
+                  // === СКРОЛЛ ОКЕРА ЛОГОВ ===
+                  val tvLogs = findViewById<TextView>(R.id.tv_coffeenet_logs)
+                  tvLogs.movementMethod = ScrollingMovementMethod.getInstance()
+                  tvLogs.setOnTouchListener { v, event ->
+                      // чтобы жест не перехватывал внешний ScrollView
+                      v.parent.requestDisallowInterceptTouchEvent(true)
+                      when (event.action and MotionEvent.ACTION_MASK) {
+                          MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                              v.parent.requestDisallowInterceptTouchEvent(false)
+                      }
+                      false
+                  }
+
                   findViewById<Button>(R.id.btn_refresh_top).setOnClickListener {
                       if (selectedFilterSerial == "ALL") {
-                          for (sn in getSavedMachines()) { sendMachineCmd(sn, "REQUEST_UPDATE") }
+                          for (sn in getSavedMachines()) sendMachineCmd(sn, "REQUEST_UPDATE")
                       } else {
                           sendMachineCmd(selectedFilterSerial, "REQUEST_UPDATE")
                       }
@@ -1031,11 +1069,15 @@ jobs:
                   }
 
                   findViewById<Button>(R.id.btn_scan_coffeenet).setOnClickListener {
-                      val tvLogs = findViewById<TextView>(R.id.tv_coffeenet_logs)
-                      tvLogs.text = "Выполняется глубокое сканирование CoffeeNet..."
+                      tvLogs.text = "⏳ Сканирование LeVending / логов...\nПодождите 2–5 сек..."
+                      tvLogs.scrollTo(0, 0)
                       Executors.newSingleThreadExecutor().execute {
                           val result = CoffeeNetReader.scanCoffeeNetEnvironment(this)
-                          runOnUiThread { tvLogs.text = result }
+                          runOnUiThread {
+                              tvLogs.text = result
+                              tvLogs.scrollTo(0, 0)
+                              Toast.makeText(this, "Готово — листайте чёрное окно", Toast.LENGTH_SHORT).show()
+                          }
                       }
                   }
 
@@ -1056,11 +1098,10 @@ jobs:
               private fun renderFilterChips() {
                   val container = findViewById<LinearLayout>(R.id.ll_filter_chips)
                   container.removeAllViews()
-
                   val machines = getSavedMachines()
 
                   val btnAll = Button(this).apply {
-                      val isSel = (selectedFilterSerial == "ALL")
+                      val isSel = selectedFilterSerial == "ALL"
                       text = "🌐 Все аппараты"
                       textSize = 12f
                       setBackgroundColor(if (isSel) c(R.color.accent) else c(R.color.card))
@@ -1079,7 +1120,7 @@ jobs:
                   for (sn in machines) {
                       val customName = getMachineName(sn)
                       val btn = Button(this).apply {
-                          val isSel = (selectedFilterSerial == sn)
+                          val isSel = selectedFilterSerial == sn
                           text = "☕ $customName"
                           textSize = 12f
                           setBackgroundColor(if (isSel) c(R.color.accent) else c(R.color.card))
@@ -1103,19 +1144,17 @@ jobs:
                   val machines = getSavedMachines()
                   val container = findViewById<LinearLayout>(R.id.ll_machine_selector)
                   container.removeAllViews()
-
                   if (machines.isEmpty()) {
-                      val tv = TextView(this).apply {
+                      container.addView(TextView(this).apply {
                           text = "Нет добавленных аппаратов. Введите S/N выше."
                           setTextColor(c(R.color.muted))
                           textSize = 12f
                           setPadding(0, 8, 0, 8)
-                      }
-                      container.addView(tv)
+                      })
                   } else {
                       for (sn in machines) {
                           val customName = getMachineName(sn)
-                          val isSelected = (sn == currentSelectedSerial)
+                          val isSelected = sn == currentSelectedSerial
                           val btn = Button(this).apply {
                               text = if (isSelected) "✅ $customName (S/N: $sn)" else "• $customName (S/N: $sn)"
                               setBackgroundColor(if (isSelected) c(R.color.accent) else c(R.color.card))
@@ -1160,16 +1199,15 @@ jobs:
                                                   renderSalesUi()
                                                   renderCostInputs(packet)
                                               }
-                                          } catch (e: Exception) {}
+                                          } catch (_: Exception) {}
                                       }
                                       override fun deliveryComplete(token: IMqttDeliveryToken?) {}
                                   })
-
                                   mqttClient?.subscribe("cofferno/+/data", 1)
                                   isMqttConnected = true
                               }
-                          } catch (e: Exception) { isMqttConnected = false }
-                          try { Thread.sleep(5000L) } catch (e: Exception) {}
+                          } catch (_: Exception) { isMqttConnected = false }
+                          try { Thread.sleep(5000L) } catch (_: Exception) {}
                       }
                   }
               }
@@ -1199,13 +1237,12 @@ jobs:
                   }
 
                   if (packetsToDisplay.isEmpty()) {
-                      val tvEmpty = TextView(this).apply {
-                          text = "Ожидание поступления данных от CoffeeNet..."
+                      drinksContainer.addView(TextView(this).apply {
+                          text = "Ожидание поступления данных..."
                           setTextColor(c(R.color.muted))
                           textSize = 13f
                           setPadding(16, 24, 16, 24)
-                      }
-                      drinksContainer.addView(tvEmpty)
+                      })
                       findViewById<TextView>(R.id.tv_total_revenue).text = "0 ₽"
                       findViewById<TextView>(R.id.tv_total_profit).text = "0 ₽"
                       findViewById<TextView>(R.id.tv_total_cups).text = "Всего напитков: 0 порций"
@@ -1221,18 +1258,14 @@ jobs:
                       for (d in packet.drinks) {
                           val cost = getDrinkCost(d.name)
                           val existing = aggregatedDrinks[d.name]
-                          if (existing == null) {
-                              aggregatedDrinks[d.name] = MergedDrink(d.name, d.count, d.price, cost)
-                          } else {
-                              existing.count += d.count
-                          }
+                          if (existing == null) aggregatedDrinks[d.name] = MergedDrink(d.name, d.count, d.price, cost)
+                          else existing.count += d.count
                       }
                   }
 
                   for ((_, d) in aggregatedDrinks) {
                       val rev = d.count * d.price
                       val profit = d.count * (d.price - d.cost)
-
                       totalRevenue += rev
                       totalProfit += profit
                       totalCups += d.count
@@ -1243,55 +1276,42 @@ jobs:
                           val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                           lp.setMargins(0, 0, 0, 16)
                           layoutParams = lp
-
-                          val row = LinearLayout(this@MainActivity).apply {
+                          addView(LinearLayout(this@MainActivity).apply {
                               orientation = LinearLayout.HORIZONTAL
                               setPadding(28, 24, 28, 24)
                               weightSum = 2f
-
-                              val left = LinearLayout(this@MainActivity).apply {
+                              addView(LinearLayout(this@MainActivity).apply {
                                   orientation = LinearLayout.VERTICAL
                                   layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.2f)
-                                  
-                                  val tvName = TextView(this@MainActivity).apply {
+                                  addView(TextView(this@MainActivity).apply {
                                       text = "☕ ${d.name}"
                                       setTextColor(c(R.color.white))
                                       textSize = 15f
                                       setTypeface(null, android.graphics.Typeface.BOLD)
-                                  }
-                                  val tvDetail = TextView(this@MainActivity).apply {
+                                  })
+                                  addView(TextView(this@MainActivity).apply {
                                       text = "${d.count} порций × ${d.price} ₽ (Себес: ${d.cost} ₽)"
                                       setTextColor(c(R.color.muted))
                                       textSize = 11f
-                                  }
-                                  addView(tvName)
-                                  addView(tvDetail)
-                              }
-
-                              val right = LinearLayout(this@MainActivity).apply {
+                                  })
+                              })
+                              addView(LinearLayout(this@MainActivity).apply {
                                   orientation = LinearLayout.VERTICAL
                                   gravity = android.view.Gravity.END
                                   layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.8f)
-
-                                  val tvRev = TextView(this@MainActivity).apply {
+                                  addView(TextView(this@MainActivity).apply {
                                       text = "$rev ₽"
                                       setTextColor(c(R.color.accent))
                                       textSize = 15f
                                       setTypeface(null, android.graphics.Typeface.BOLD)
-                                  }
-                                  val tvProf = TextView(this@MainActivity).apply {
+                                  })
+                                  addView(TextView(this@MainActivity).apply {
                                       text = "+$profit ₽"
                                       setTextColor(if (profit >= 0) c(R.color.green) else c(R.color.red))
                                       textSize = 12f
-                                  }
-                                  addView(tvRev)
-                                  addView(tvProf)
-                              }
-
-                              addView(left)
-                              addView(right)
-                          }
-                          addView(row)
+                                  })
+                              })
+                          })
                       }
                       drinksContainer.addView(card)
                   }
@@ -1304,21 +1324,18 @@ jobs:
               private fun renderCostInputs(packet: TelemetryPacket) {
                   val container = findViewById<LinearLayout>(R.id.ll_costs_container)
                   if (container.childCount > 0) return
-
                   for (d in packet.drinks) {
                       val row = LinearLayout(this).apply {
                           orientation = LinearLayout.HORIZONTAL
                           setPadding(0, 6, 0, 6)
                           gravity = android.view.Gravity.CENTER_VERTICAL
-
-                          val tv = TextView(this@MainActivity).apply {
+                          addView(TextView(this@MainActivity).apply {
                               text = "${d.name} (${d.price} ₽)"
                               setTextColor(c(R.color.white))
                               textSize = 13f
                               layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                          }
-
-                          val etCost = EditText(this@MainActivity).apply {
+                          })
+                          addView(EditText(this@MainActivity).apply {
                               hint = "Себес ₽"
                               setText(getDrinkCost(d.name).toString())
                               setTextColor(c(R.color.accent))
@@ -1326,9 +1343,7 @@ jobs:
                               inputType = android.text.InputType.TYPE_CLASS_NUMBER
                               tag = d.name
                               layoutParams = LinearLayout.LayoutParams(160, LinearLayout.LayoutParams.WRAP_CONTENT)
-                          }
-                          addView(tv)
-                          addView(etCost)
+                          })
                       }
                       container.addView(row)
                   }
@@ -1341,17 +1356,14 @@ jobs:
                       val row = container.getChildAt(i) as? LinearLayout
                       val et = row?.getChildAt(1) as? EditText
                       val drinkName = et?.tag as? String
-                      val costVal = et?.text.toString().toIntOrNull() ?: 35
-                      if (!drinkName.isNullOrEmpty()) {
-                          prefs.putInt("cost_$drinkName", costVal)
-                      }
+                      val costVal = et?.text?.toString()?.toIntOrNull() ?: 35
+                      if (!drinkName.isNullOrEmpty()) prefs.putInt("cost_$drinkName", costVal)
                   }
                   prefs.apply()
               }
 
-              private fun getDrinkCost(drinkName: String): Int {
-                  return getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).getInt("cost_$drinkName", 40)
-              }
+              private fun getDrinkCost(drinkName: String): Int =
+                  getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).getInt("cost_$drinkName", 40)
 
               private fun getSavedMachines(): List<String> {
                   val raw = getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).getString("machines_list", "") ?: ""
@@ -1375,33 +1387,27 @@ jobs:
           }
           EOF
 
-      # Сборка проекта
       - name: Build APK with Gradle
-        run: |
-          gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon
 
-      # Отправка собранного APK в Telegram
       - name: Send APK to Telegram
         if: success()
         run: |
           APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           if [ -n "$APK_PATH" ] && [ -f "$APK_PATH" ]; then
-            echo "Файл найден: $APK_PATH. Отправляем в Telegram..."
             curl -F chat_id="${{ env.CHAT_ID }}" \
                  -F document=@"$APK_PATH" \
-                 -F caption="☕ <b>Сборка Cofferno LV-307 готова!</b>%0AВерсия: <code>7.0-COFFEENET</code>" \
+                 -F caption="☕ <b>Cofferno 7.1</b>%0AБольшой скролл-сканер + LeVending" \
                  -F parse_mode="HTML" \
                  "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
           else
-            echo "Ошибка: APK файл не найден!"
             exit 1
           fi
 
-      # Уведомление в случае ошибки сборки
       - name: Send Failure Alert to Telegram
         if: failure()
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
                -d "chat_id=${{ env.CHAT_ID }}" \
-               -d "text=❌ <b>Ошибка сборки Cofferno LV-307!</b> Проверьте логи в GitHub Actions." \
+               -d "text=❌ Ошибка сборки Cofferno 7.1" \
                -d "parse_mode=HTML"
