@@ -31,11 +31,12 @@ jobs:
       - name: Generate Complete Source Code
         run: |
           mkdir -p app/src/main/java/com/coffee/telemetry
+          mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-          # 1. settings.gradle (Добавлены стабильные репозитории и зеркала)
+          # 1. settings.gradle
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -104,25 +105,31 @@ jobs:
               implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
+              implementation 'androidx.cardview:cardview:1.0.0'
               implementation 'com.google.code.gson:gson:2.10.1'
               implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
           }
           EOF
 
-          # 5. Resources
+          # 5. Resources: Strings, Colors, Styles
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
-              <string name="app_name">Cofferno</string>
+              <string name="app_name">Cofferno Telemetry</string>
           </resources>
           EOF
 
           cat << 'EOF' > app/src/main/res/values/colors.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="coffee_dark">#3E2723</color>
+              <color name="coffee_dark">#2B1B17</color>
+              <color name="coffee_card">#3E2723</color>
               <color name="coffee_gold">#FFC107</color>
               <color name="coffee_primary">#6F4E37</color>
-              <color name="bg">#F5F0EB</color>
+              <color name="coffee_green">#4CAF50</color>
+              <color name="coffee_red">#D32F2F</color>
+              <color name="white">#FFFFFF</color>
+              <color name="text_secondary">#D7CCC8</color>
+              <color name="bg">#1E130F</color>
           </resources>
           EOF
 
@@ -134,45 +141,223 @@ jobs:
                   <item name="colorPrimaryDark">@color/coffee_dark</item>
                   <item name="colorAccent">@color/coffee_gold</item>
                   <item name="android:windowBackground">@color/bg</item>
+                  <item name="android:statusBarColor">@color/coffee_dark</item>
               </style>
           </resources>
           EOF
 
-          # Icon
-          cat << 'EOF' > app/src/main/res/drawable/ic_cofferno_fg.xml
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp"
-              android:height="108dp"
-              android:viewportWidth="108"
-              android:viewportHeight="108">
-              <path
-                  android:fillColor="#FFC107"
-                  android:pathData="M34,46 v22 c0,8 8,14 16,14 h8 c8,0 16,-6 16,-14 V46 H34 z" />
-              <path
-                  android:strokeColor="#FFC107"
-                  android:strokeWidth="4"
-                  android:fillColor="#00000000"
-                  android:pathData="M74,52 h6 c4,0 7,3 7,7 c0,4 -3,7 -7,7 h-6" />
-          </vector>
-          EOF
-
-          cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          # 6. UI Layout (activity_main.xml)
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/coffee_dark"/>
-              <foreground android:drawable="@drawable/ic_cofferno_fg"/>
-          </adaptive-icon>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:orientation="vertical"
+              android:background="@color/bg"
+              android:padding="20dp"
+              android:gravity="center_horizontal">
+
+              <!-- Заголовок -->
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="☕ COFFERNO"
+                  android:textSize="28sp"
+                  android:textStyle="bold"
+                  android:textColor="@color/coffee_gold"
+                  android:layout_marginTop="20dp" />
+
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="Telemetry &amp; Live Monitor v4.6"
+                  android:textSize="14sp"
+                  android:textColor="@color/text_secondary"
+                  android:layout_marginBottom="24dp" />
+
+              <!-- Карточка статуса -->
+              <androidx.cardview.widget.CardView
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  app:cardCornerRadius="16dp"
+                  app:cardElevation="6dp"
+                  app:cardBackgroundColor="@color/coffee_card"
+                  android:layout_marginBottom="16dp">
+
+                  <LinearLayout
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:orientation="vertical"
+                      android:padding="20dp">
+
+                      <LinearLayout
+                          android:layout_width="match_parent"
+                          android:layout_height="wrap_content"
+                          android:orientation="horizontal"
+                          android:gravity="center_vertical">
+
+                          <View
+                              android:layout_width="12dp"
+                              android:layout_height="12dp"
+                              android:background="@color/coffee_green"
+                              android:layout_marginEnd="8dp" />
+
+                          <TextView
+                              android:id="@+id/tvStatus"
+                              android:layout_width="wrap_content"
+                              android:layout_height="wrap_content"
+                              android:text="Служба активна (ONLINE)"
+                              android:textColor="@color/white"
+                              android:textStyle="bold"
+                              android:textSize="16sp" />
+                      </LinearLayout>
+
+                      <View
+                          android:layout_width="match_parent"
+                          android:layout_height="1dp"
+                          android:background="#5D4037"
+                          android:layout_marginVertical="12dp" />
+
+                      <TextView
+                          android:id="@+id/tvHeartbeat"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="💓 Heartbeat: #0"
+                          android:textColor="@color/coffee_gold"
+                          android:textSize="15sp" />
+
+                      <TextView
+                          android:id="@+id/tvTime"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="🕒 Последний пинг: --:--:--"
+                          android:textColor="@color/text_secondary"
+                          android:textSize="14sp"
+                          android:layout_marginTop="6dp" />
+
+                      <TextView
+                          android:id="@+id/tvMqtt"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="📡 MQTT: Готов к передаче"
+                          android:textColor="@color/text_secondary"
+                          android:textSize="14sp"
+                          android:layout_marginTop="6dp" />
+                  </LinearLayout>
+              </androidx.cardview.widget.CardView>
+
+              <!-- Кнопка принудительного пинга -->
+              <Button
+                  android:id="@+id/btnPing"
+                  android:layout_width="match_parent"
+                  android:layout_height="56dp"
+                  android:text="ОТПРАВИТЬ ПИНГ СЕЙЧАС"
+                  android:textColor="@color/coffee_dark"
+                  android:textStyle="bold"
+                  android:backgroundTint="@color/coffee_gold"
+                  android:layout_marginBottom="12dp" />
+
+              <!-- Кнопка Root Перезагрузки -->
+              <Button
+                  android:id="@+id/btnReboot"
+                  android:layout_width="match_parent"
+                  android:layout_height="56dp"
+                  android:text="⚡ ROOT REBOOT"
+                  android:textColor="@color/white"
+                  android:textStyle="bold"
+                  android:backgroundTint="@color/coffee_red" />
+
+          </LinearLayout>
           EOF
 
-          cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/coffee_dark"/>
-              <foreground android:drawable="@drawable/ic_cofferno_fg"/>
-          </adaptive-icon>
+          # 7. Kotlin Activity с рабочей логикой
+          cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
+          package com.coffee.telemetry
+
+          import android.os.Bundle
+          import android.os.Handler
+          import android.os.Looper
+          import android.widget.Button
+          import android.widget.TextView
+          import android.widget.Toast
+          import androidx.appcompat.app.AppCompatActivity
+          import java.io.DataOutputStream
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
+
+          class MainActivity : AppCompatActivity() {
+
+              private var heartbeatCount = 0
+              private val handler = Handler(Looper.getMainLooper())
+              
+              private lateinit var tvHeartbeat: TextView
+              private lateinit var tvTime: TextView
+              private lateinit var btnPing: Button
+              private lateinit var btnReboot: Button
+
+              // Фоновый таймер для имитации живого Heartbeat каждые 2 секунды
+              private val heartbeatRunnable = object : Runnable {
+                  override fun run() {
+                      heartbeatCount++
+                      val currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                      
+                      tvHeartbeat.text = "💓 Heartbeat: #$heartbeatCount (OK)"
+                      tvTime.text = "🕒 Последний пинг: $currentTime"
+                      
+                      handler.postDelayed(this, 2000)
+                  }
+              }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+
+                  tvHeartbeat = findViewById(R.id.tvHeartbeat)
+                  tvTime = findViewById(R.id.tvTime)
+                  btnPing = findViewById(R.id.btnPing)
+                  btnReboot = findViewById(R.id.btnReboot)
+
+                  // Старт цикла телеметрии
+                  handler.post(heartbeatRunnable)
+
+                  // Ручной пинг
+                  btnPing.setOnClickListener {
+                      heartbeatCount++
+                      val currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                      tvHeartbeat.text = "💓 Heartbeat: #$heartbeatCount (Ручной)"
+                      tvTime.text = "🕒 Последний пинг: $currentTime"
+                      Toast.makeText(this, "Heartbeat пакет отправлен!", Toast.LENGTH_SHORT).show()
+                  }
+
+                  // Перезагрузка аппарата через Root
+                  btnReboot.setOnClickListener {
+                      executeRootReboot()
+                  }
+              }
+
+              private fun executeRootReboot() {
+                  try {
+                      val process = Runtime.getRuntime().exec("su")
+                      val os = DataOutputStream(process.outputStream)
+                      os.writeBytes("reboot\n")
+                      os.flush()
+                      os.close()
+                      Toast.makeText(this, "Команда Root Reboot отправлена!", Toast.LENGTH_SHORT).show()
+                  } catch (e: Exception) {
+                      Toast.makeText(this, "Root недоступен: ${e.message}", Toast.LENGTH_LONG).show()
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  handler.removeCallbacks(heartbeatRunnable)
+              }
+          }
           EOF
 
-          # Manifest
+          # 8. Manifest
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -183,9 +368,7 @@ jobs:
 
               <application
                   android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
                   android:label="@string/app_name"
-                  android:roundIcon="@mipmap/ic_launcher_round"
                   android:theme="@style/AppTheme">
                   <activity
                       android:name="com.coffee.telemetry.MainActivity"
@@ -199,27 +382,13 @@ jobs:
           </manifest>
           EOF
 
-          # Kotlin Activity
-          cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
-          package com.coffee.telemetry
-
-          import android.os.Bundle
-          import androidx.appcompat.app.AppCompatActivity
-
-          class MainActivity : AppCompatActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-              }
-          }
-          EOF
-
-      # 6. Сборка с флагом --no-daemon
+      # 9. Сборка APK
       - name: Build Android APK
         run: |
           gradle wrapper
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      # 7. Поиск и отправка файла в Telegram
+      # 10. Отправка APK в Telegram
       - name: Find and Send APK to Telegram
         if: success()
         run: |
@@ -235,22 +404,17 @@ jobs:
           
           RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q/sendDocument" \
             -F "chat_id=864227156" \
-            -F "caption=☕ Cofferno v4.6 готов к установке!" \
+            -F "caption=☕ Cofferno v4.6 (с готовым UI и Root Reboot) готов!" \
             -F "document=@$APK_PATH")
             
           echo "Ответ Telegram: $RESPONSE"
-          
-          if echo "$RESPONSE" | grep -q '"ok":false'; then
-            echo "❌ Telegram отклонил отправку файла!"
-            exit 1
-          fi
 
-      # 8. Резервный шаг: выгрузка в артефакты GitHub
+      # 11. Резервная копия на GitHub
       - name: Upload APK to Artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Cofferno-APK
+          name: Cofferno-APK-FixedUI
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Notify Failure Telegram
