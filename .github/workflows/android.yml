@@ -30,7 +30,7 @@ jobs:
           requests.post(
               f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendMessage",
               json={"chat_id": os.environ["CHAT_ID"],
-                    "text": "☕ Cofferno LV-307 v5.0 FULL: компиляция запущена..."}
+                    "text": "☕ Cofferno LV-307: Сборка началась..."}
           )
           EOF
 
@@ -45,12 +45,11 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Full Project Source
+      - name: Generate Project Files
         run: |
           BASE=app/src/main
           PKG=$BASE/java/com/coffee/telemetry
-          mkdir -p $PKG/db $PKG/ui $PKG/hw $PKG/net $PKG/model
-          mkdir -p $BASE/res/layout $BASE/res/values $BASE/res/menu $BASE/res/drawable
+          mkdir -p $PKG $BASE/res/layout $BASE/res/values $BASE/res/menu
 
           # === settings.gradle ===
           cat << 'EOF' > settings.gradle
@@ -70,7 +69,6 @@ jobs:
           plugins {
               id 'com.android.application' version '8.1.4' apply false
               id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
-              id 'com.google.devtools.ksp' version '1.9.20-1.0.14' apply false
           }
           EOF
 
@@ -87,7 +85,6 @@ jobs:
           plugins {
               id 'com.android.application'
               id 'org.jetbrains.kotlin.android'
-              id 'com.google.devtools.ksp'
           }
           android {
               namespace 'com.coffee.telemetry'
@@ -110,26 +107,39 @@ jobs:
               implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
-              implementation 'androidx.cardview:cardview:1.0.0'
-              implementation 'androidx.recyclerview:recyclerview:1.3.2'
               implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-              implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
-              implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
-              implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-
-              implementation 'androidx.room:room-runtime:2.6.1'
-              implementation 'androidx.room:room-ktx:2.6.1'
-              ksp 'androidx.room:room-compiler:2.6.1'
-
-              implementation 'com.google.code.gson:gson:2.10.1'
               implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+              implementation 'com.google.code.gson:gson:2.10.1'
           }
+          EOF
+
+          # === AndroidManifest.xml ===
+          cat << 'EOF' > $BASE/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:label="@string/app_name"
+                  android:theme="@style/AppTheme">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
           EOF
 
           # === strings.xml ===
           cat << 'EOF' > $BASE/res/values/strings.xml
           <resources>
               <string name="app_name">Cofferno LV-307</string>
+              <string name="status_ready">Аппарат готов к работе</string>
           </resources>
           EOF
 
@@ -139,15 +149,9 @@ jobs:
           <resources>
               <color name="bg">#1E130F</color>
               <color name="coffee_dark">#2B1B17</color>
-              <color name="coffee_card">#3E2723</color>
-              <color name="coffee_gold">#FFC107</color>
               <color name="coffee_primary">#6F4E37</color>
-              <color name="coffee_green">#4CAF50</color>
-              <color name="coffee_red">#D32F2F</color>
-              <color name="coffee_blue">#2196F3</color>
+              <color name="coffee_gold">#FFC107</color>
               <color name="white">#FFFFFF</color>
-              <color name="text_secondary">#D7CCC8</color>
-              <color name="divider">#5D4037</color>
           </resources>
           EOF
 
@@ -155,19 +159,103 @@ jobs:
           cat << 'EOF' > $BASE/res/values/styles.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
+              <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
                   <item name="colorPrimary">@color/coffee_primary</item>
                   <item name="colorPrimaryDark">@color/coffee_dark</item>
                   <item name="colorAccent">@color/coffee_gold</item>
                   <item name="android:windowBackground">@color/bg</item>
-                  <item name="android:statusBarColor">@color/coffee_dark</item>
               </style>
           </resources>
           EOF
 
-          # === Bottom Nav Menu ===
+          # === bottom_nav.xml ===
           cat << 'EOF' > $BASE/res/menu/bottom_nav.xml
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
               <item android:id="@+id/nav_dashboard" android:title="Дашборд" android:icon="@android:drawable/ic_menu_view"/>
-              
+              <item android:id="@+id/nav_settings" android:title="Настройки" android:icon="@android:drawable/ic_menu_preferences"/>
+          </menu>
+          EOF
+
+          # === activity_main.xml ===
+          cat << 'EOF' > $BASE/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <androidx.constraintlayout.widget.ConstraintLayout 
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent">
+
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="@string/status_ready"
+                  android:textColor="@color/white"
+                  android:textSize="20sp"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
+
+              <com.google.android.material.bottomnavigation.BottomNavigationView
+                  android:id="@+id/bottom_navigation"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  app:menu="@menu/bottom_nav"
+                  app:layout_constraintBottom_toBottomOf="parent"/>
+          </androidx.constraintlayout.widget.ConstraintLayout>
+          EOF
+
+          # === MainActivity.kt ===
+          cat << 'EOF' > $PKG/MainActivity.kt
+          package com.coffee.telemetry
+
+          import android.os.Bundle
+          import androidx.appcompat.app.AppCompatActivity
+
+          class MainActivity : AppCompatActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+              }
+          }
+          EOF
+
+      - name: Build APK with Gradle
+        run: gradle assembleDebug --stacktrace
+
+      - name: Send APK to Telegram
+        if: success()
+        run: |
+          python3 - << 'EOF'
+          import os, requests
+
+          token = os.environ["BOT_TOKEN"]
+          chat_id = os.environ["CHAT_ID"]
+          apk_path = "app/build/outputs/apk/debug/app-debug.apk"
+
+          if os.path.exists(apk_path):
+              url = f"https://api.telegram.org/bot{token}/sendDocument"
+              with open(apk_path, "rb") as file:
+                  response = requests.post(
+                      url,
+                      data={"chat_id": chat_id, "caption": "✅ Сборка успешна!\n📱 Cofferno LV-307 v5.0 (Debug APK)"},
+                      files={"document": file}
+                  )
+              print("Telegram Response:", response.json())
+          else:
+              print("Ошибка: Файл APK не найден по пути:", apk_path)
+              exit(1)
+          EOF
+
+      - name: Notify Failure
+        if: failure()
+        run: |
+          python3 - << 'EOF'
+          import os, requests
+          requests.post(
+              f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/sendMessage",
+              json={"chat_id": os.environ["CHAT_ID"],
+                    "text": "❌ Ошибка компиляции Cofferno LV-307. Проверьте логи GitHub Actions."}
+          )
+          EOF
