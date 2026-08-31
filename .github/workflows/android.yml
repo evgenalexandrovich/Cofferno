@@ -1,22 +1,56 @@
-name: Cofferno Business Suite v5.0
+name: Cofferno Full MVP Build
 
 on:
   push:
-    branches: [ "main", "master" ]
   workflow_dispatch:
+
+env:
+  BOT_TOKEN: "8923730105:AAFgMSUgh63L_1Xuad839ex4fXZmTpFR1_Q"
+  CHAT_ID: "864227156"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Notify Start
+      - name: Set up Python for reliable Telegram upload
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python Requests
+        run: pip install requests
+
+      # 1. Проверка Telegram-бота перед началом сборки
+      - name: Check Telegram Bot & Send Start Notification
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            -d "text=☕ Cofferno v5.0 Business Suite — сборка запущена..."
+          python3 - << 'EOF'
+          import os, sys, requests
+
+          token = os.environ["BOT_TOKEN"]
+          chat_id = os.environ["CHAT_ID"]
+
+          url = f"https://api.telegram.org/bot{token}/sendMessage"
+          payload = {
+              "chat_id": chat_id,
+              "text": "☕ *Сборка Cofferno v4.6 запущена!*\nКомпилирую APK...",
+              "parse_mode": "Markdown"
+          }
+
+          try:
+              res = requests.post(url, json=payload, timeout=15)
+              data = res.json()
+              if not data.get("ok"):
+                  print(f"❌ ОШИБКА TELEGRAM: {data.get('description')}")
+                  print("👉 УБЕДИТЕСЬ, ЧТО ВЫ НАЖАЛИ /start В ДИАЛОГЕ С БОТОМ!")
+                  sys.exit(1)
+              print("✅ Связь с Telegram установлена успешно.")
+          except Exception as e:
+              print(f"❌ Сетевая ошибка при связи с Telegram: {e}")
+              sys.exit(1)
+          EOF
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -29,26 +63,34 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Project Structure
+      # 2. Создание структуры исходников
+      - name: Generate Complete Source Code
         run: |
-          mkdir -p app/src/main/java/com/coffee/telemetry/{data,ui,util,service}
-          mkdir -p app/src/main/res/{layout,values,drawable,menu}
+          mkdir -p app/src/main/java/com/coffee/telemetry
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
 
-          # ═══════════════════════════════════════
-          # GRADLE CONFIG
-          # ═══════════════════════════════════════
+          # settings.gradle
           cat << 'EOF' > settings.gradle
           pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           rootProject.name = "Cofferno"
           include ':app'
           EOF
 
+          # build.gradle (Root)
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.1.4' apply false
@@ -56,13 +98,14 @@ jobs:
           }
           EOF
 
+          # gradle.properties
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.nonTransitiveRClass=true
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          kotlin.code.style=official
           EOF
 
+          # app/build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -77,15 +120,17 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 21
                   targetSdk 34
-                  versionCode 50
-                  versionName "5.0-Business"
+                  versionCode 6
+                  versionName "4.6-Live"
               }
+
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions { jvmTarget = '17' }
-              buildFeatures { viewBinding true }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
           }
 
           dependencies {
@@ -93,38 +138,33 @@ jobs:
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.11.0'
               implementation 'androidx.cardview:cardview:1.0.0'
-              implementation 'androidx.recyclerview:recyclerview:1.3.2'
-              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-              implementation 'com.google.code.gson:gson:2.10.1'
           }
           EOF
 
-          # ═══════════════════════════════════════
-          # RESOURCES
-          # ═══════════════════════════════════════
+          # Strings
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
-              <string name="app_name">Cofferno</string>
+              <string name="app_name">Cofferno Telemetry</string>
           </resources>
           EOF
 
+          # Colors
           cat << 'EOF' > app/src/main/res/values/colors.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="bg">#1E130F</color>
               <color name="coffee_dark">#2B1B17</color>
               <color name="coffee_card">#3E2723</color>
               <color name="coffee_gold">#FFC107</color>
               <color name="coffee_primary">#6F4E37</color>
               <color name="coffee_green">#4CAF50</color>
               <color name="coffee_red">#D32F2F</color>
-              <color name="coffee_blue">#2196F3</color>
               <color name="white">#FFFFFF</color>
               <color name="text_secondary">#D7CCC8</color>
-              <color name="divider">#5D4037</color>
+              <color name="bg">#1E130F</color>
           </resources>
           EOF
 
+          # Styles
           cat << 'EOF' > app/src/main/res/values/styles.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -135,626 +175,295 @@ jobs:
                   <item name="android:windowBackground">@color/bg</item>
                   <item name="android:statusBarColor">@color/coffee_dark</item>
               </style>
-              <style name="CardStat">
-                  <item name="android:layout_width">0dp</item>
-                  <item name="android:layout_height">wrap_content</item>
-                  <item name="android:layout_weight">1</item>
-                  <item name="android:layout_margin">4dp</item>
-              </style>
           </resources>
           EOF
 
-          cat << 'EOF' > app/src/main/res/drawable/btn_bg.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <shape xmlns:android="http://schemas.android.com/apk/res/android">
-              <solid android:color="@color/coffee_primary"/>
-              <corners android:radius="12dp"/>
-          </shape>
-          EOF
-
-          cat << 'EOF' > app/src/main/res/drawable/edit_bg.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <shape xmlns:android="http://schemas.android.com/apk/res/android">
-              <solid android:color="@color/coffee_dark"/>
-              <corners android:radius="8dp"/>
-              <stroke android:width="1dp" android:color="@color/divider"/>
-          </shape>
-          EOF
-
-          # ═══════════════════════════════════════
-          # LAYOUTS
-          # ═══════════════════════════════════════
-
-          # --- Login ---
-          cat << 'EOF' > app/src/main/res/layout/activity_login.xml
+          # Layout UI
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:orientation="vertical"
-              android:padding="24dp"
-              android:gravity="center"
-              android:background="@color/bg">
+              android:background="@color/bg"
+              android:padding="20dp"
+              android:gravity="center_horizontal">
 
               <TextView
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:text="☕ COFFERNO"
-                  android:textSize="34sp"
+                  android:textSize="28sp"
                   android:textStyle="bold"
-                  android:textColor="@color/coffee_gold"/>
+                  android:textColor="@color/coffee_gold"
+                  android:layout_marginTop="20dp" />
 
               <TextView
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
-                  android:text="Business Suite v5.0"
+                  android:text="Telemetry &amp; Live Monitor v4.6"
+                  android:textSize="14sp"
                   android:textColor="@color/text_secondary"
-                  android:layout_marginBottom="40dp"/>
+                  android:layout_marginBottom="24dp" />
 
-              <EditText
-                  android:id="@+id/etAccount"
-                  android:layout_width="match_parent"
-                  android:layout_height="56dp"
-                  android:hint="Email / ID кабинета"
-                  android:textColor="@color/white"
-                  android:textColorHint="@color/text_secondary"
-                  android:background="@drawable/edit_bg"
-                  android:padding="16dp"
-                  android:inputType="textEmailAddress"
-                  android:layout_marginBottom="12dp"/>
-
-              <EditText
-                  android:id="@+id/etMachineId"
-                  android:layout_width="match_parent"
-                  android:layout_height="56dp"
-                  android:hint="Серийный номер машины"
-                  android:textColor="@color/white"
-                  android:textColorHint="@color/text_secondary"
-                  android:background="@drawable/edit_bg"
-                  android:padding="16dp"
-                  android:layout_marginBottom="24dp"/>
-
-              <Button
-                  android:id="@+id/btnBind"
-                  android:layout_width="match_parent"
-                  android:layout_height="56dp"
-                  android:text="ПРИВЯЗАТЬ МАШИНУ"
-                  android:textColor="@color/coffee_dark"
-                  android:textStyle="bold"
-                  android:backgroundTint="@color/coffee_gold"/>
-
-              <TextView
-                  android:id="@+id/tvDeviceId"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:textColor="@color/text_secondary"
-                  android:textSize="11sp"
-                  android:layout_marginTop="24dp"/>
-          </LinearLayout>
-          EOF
-
-          # --- Main Dashboard ---
-          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:background="@color/bg">
-
-              <LinearLayout
+              <androidx.cardview.widget.CardView
                   android:layout_width="match_parent"
                   android:layout_height="wrap_content"
-                  android:orientation="vertical"
-                  android:padding="16dp">
+                  app:cardCornerRadius="16dp"
+                  app:cardElevation="6dp"
+                  app:cardBackgroundColor="@color/coffee_card"
+                  android:layout_marginBottom="16dp">
 
-                  <!-- Header -->
                   <LinearLayout
                       android:layout_width="match_parent"
                       android:layout_height="wrap_content"
-                      android:orientation="horizontal"
-                      android:gravity="center_vertical"
-                      android:layout_marginBottom="16dp">
+                      android:orientation="vertical"
+                      android:padding="20dp">
 
                       <LinearLayout
-                          android:layout_width="0dp"
+                          android:layout_width="match_parent"
                           android:layout_height="wrap_content"
-                          android:layout_weight="1"
-                          android:orientation="vertical">
+                          android:orientation="horizontal"
+                          android:gravity="center_vertical">
+
+                          <View
+                              android:layout_width="12dp"
+                              android:layout_height="12dp"
+                              android:background="@color/coffee_green"
+                              android:layout_marginEnd="8dp" />
+
                           <TextView
+                              android:id="@+id/tvStatus"
                               android:layout_width="wrap_content"
                               android:layout_height="wrap_content"
-                              android:text="☕ Cofferno"
-                              android:textSize="22sp"
+                              android:text="Служба активна (ONLINE)"
+                              android:textColor="@color/white"
                               android:textStyle="bold"
-                              android:textColor="@color/coffee_gold"/>
-                          <TextView
-                              android:id="@+id/tvMachineInfo"
-                              android:layout_width="wrap_content"
-                              android:layout_height="wrap_content"
-                              android:textColor="@color/text_secondary"
-                              android:textSize="12sp"/>
+                              android:textSize="16sp" />
                       </LinearLayout>
 
                       <View
-                          android:id="@+id/statusDot"
-                          android:layout_width="12dp"
-                          android:layout_height="12dp"
-                          android:background="@color/coffee_green"
-                          android:layout_marginEnd="6dp"/>
-                      <TextView
-                          android:id="@+id/tvOnline"
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:text="ONLINE"
-                          android:textColor="@color/coffee_green"
-                          android:textStyle="bold"
-                          android:textSize="12sp"/>
-                  </LinearLayout>
-
-                  <!-- Stat cards row -->
-                  <LinearLayout
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
-                      android:orientation="horizontal">
-
-                      <androidx.cardview.widget.CardView
-                          style="@style/CardStat"
-                          app:cardCornerRadius="12dp"
-                          app:cardBackgroundColor="@color/coffee_card">
-                          <LinearLayout
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
-                              android:orientation="vertical"
-                              android:padding="12dp">
-                              <TextView
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="Выручка"
-                                  android:textColor="@color/text_secondary"
-                                  android:textSize="12sp"/>
-                              <TextView
-                                  android:id="@+id/tvRevenue"
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="0 ₽"
-                                  android:textColor="@color/coffee_gold"
-                                  android:textStyle="bold"
-                                  android:textSize="18sp"/>
-                          </LinearLayout>
-                      </androidx.cardview.widget.CardView>
-
-                      <androidx.cardview.widget.CardView
-                          style="@style/CardStat"
-                          app:cardCornerRadius="12dp"
-                          app:cardBackgroundColor="@color/coffee_card">
-                          <LinearLayout
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
-                              android:orientation="vertical"
-                              android:padding="12dp">
-                              <TextView
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="Прибыль"
-                                  android:textColor="@color/text_secondary"
-                                  android:textSize="12sp"/>
-                              <TextView
-                                  android:id="@+id/tvProfit"
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="0 ₽"
-                                  android:textColor="@color/coffee_green"
-                                  android:textStyle="bold"
-                                  android:textSize="18sp"/>
-                          </LinearLayout>
-                      </androidx.cardview.widget.CardView>
-                  </LinearLayout>
-
-                  <LinearLayout
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
-                      android:orientation="horizontal"
-                      android:layout_marginBottom="16dp">
-
-                      <androidx.cardview.widget.CardView
-                          style="@style/CardStat"
-                          app:cardCornerRadius="12dp"
-                          app:cardBackgroundColor="@color/coffee_card">
-                          <LinearLayout
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
-                              android:orientation="vertical"
-                              android:padding="12dp">
-                              <TextView
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="Продаж сегодня"
-                                  android:textColor="@color/text_secondary"
-                                  android:textSize="12sp"/>
-                              <TextView
-                                  android:id="@+id/tvSalesCount"
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="0"
-                                  android:textColor="@color/white"
-                                  android:textStyle="bold"
-                                  android:textSize="18sp"/>
-                          </LinearLayout>
-                      </androidx.cardview.widget.CardView>
-
-                      <androidx.cardview.widget.CardView
-                          style="@style/CardStat"
-                          app:cardCornerRadius="12dp"
-                          app:cardBackgroundColor="@color/coffee_card">
-                          <LinearLayout
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
-                              android:orientation="vertical"
-                              android:padding="12dp">
-                              <TextView
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="Средний чек"
-                                  android:textColor="@color/text_secondary"
-                                  android:textSize="12sp"/>
-                              <TextView
-                                  android:id="@+id/tvAvgCheck"
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:text="0 ₽"
-                                  android:textColor="@color/white"
-                                  android:textStyle="bold"
-                                  android:textSize="18sp"/>
-                          </LinearLayout>
-                      </androidx.cardview.widget.CardView>
-                  </LinearLayout>
-
-                  <!-- Actions grid -->
-                  <TextView
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="УПРАВЛЕНИЕ"
-                      android:textColor="@color/text_secondary"
-                      android:textSize="12sp"
-                      android:letterSpacing="0.1"
-                      android:layout_marginBottom="8dp"/>
-
-                  <Button
-                      android:id="@+id/btnSales"
-                      android:layout_width="match_parent"
-                      android:layout_height="56dp"
-                      android:text="📊  ЖУРНАЛ ПРОДАЖ"
-                      android:textColor="@color/white"
-                      android:gravity="start|center_vertical"
-                      android:paddingStart="20dp"
-                      android:background="@drawable/btn_bg"
-                      android:layout_marginBottom="8dp"/>
-
-                  <Button
-                      android:id="@+id/btnPrices"
-                      android:layout_width="match_parent"
-                      android:layout_height="56dp"
-                      android:text="💰  КОРРЕКЦИЯ ЦЕН"
-                      android:textColor="@color/white"
-                      android:gravity="start|center_vertical"
-                      android:paddingStart="20dp"
-                      android:background="@drawable/btn_bg"
-                      android:layout_marginBottom="8dp"/>
-
-                  <Button
-                      android:id="@+id/btnCost"
-                      android:layout_width="match_parent"
-                      android:layout_height="56dp"
-                      android:text="🧾  СЕБЕСТОИМОСТЬ"
-                      android:textColor="@color/white"
-                      android:gravity="start|center_vertical"
-                      android:paddingStart="20dp"
-                      android:background="@drawable/btn_bg"
-                      android:layout_marginBottom="8dp"/>
-
-                  <Button
-                      android:id="@+id/btnErrors"
-                      android:layout_width="match_parent"
-                      android:layout_height="56dp"
-                      android:text="⚠️  ОШИБКИ МАШИНЫ"
-                      android:textColor="@color/white"
-                      android:gravity="start|center_vertical"
-                      android:paddingStart="20dp"
-                      android:background="@drawable/btn_bg"
-                      android:layout_marginBottom="16dp"/>
-
-                  <TextView
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:text="СИСТЕМА"
-                      android:textColor="@color/text_secondary"
-                      android:textSize="12sp"
-                      android:letterSpacing="0.1"
-                      android:layout_marginBottom="8dp"/>
-
-                  <Button
-                      android:id="@+id/btnPingNow"
-                      android:layout_width="match_parent"
-                      android:layout_height="56dp"
-                      android:text="📡 ОТПРАВИТЬ HEARTBEAT"
-                      android:textColor="@color/coffee_dark"
-                      android:textStyle="bold"
-                      android:backgroundTint="@color/coffee_gold"
-                      android:layout_marginBottom="8dp"/>
-
-                  <Button
-                      android:id="@+id/btnReboot"
-                      android:layout_width="match_parent"
-                      android:layout_height="56dp"
-                      android:text="⚡ ПЕРЕЗАГРУЗИТЬ МАШИНУ"
-                      android:textColor="@color/white"
-                      android:textStyle="bold"
-                      android:backgroundTint="@color/coffee_red"
-                      android:layout_marginBottom="8dp"/>
-
-                  <Button
-                      android:id="@+id/btnLogout"
-                      android:layout_width="match_parent"
-                      android:layout_height="48dp"
-                      android:text="Выйти / Отвязать"
-                      android:textColor="@color/text_secondary"
-                      android:backgroundTint="@color/coffee_dark"/>
-
-              </LinearLayout>
-          </ScrollView>
-          EOF
-
-          # --- Sales list ---
-          cat << 'EOF' > app/src/main/res/layout/activity_sales.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:background="@color/bg"
-              android:padding="16dp">
-
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="📊 Журнал продаж"
-                  android:textSize="22sp"
-                  android:textStyle="bold"
-                  android:textColor="@color/coffee_gold"
-                  android:layout_marginBottom="12dp"/>
-
-              <TextView
-                  android:id="@+id/tvSummary"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:textColor="@color/text_secondary"
-                  android:textSize="14sp"
-                  android:layout_marginBottom="12dp"/>
-
-              <androidx.recyclerview.widget.RecyclerView
-                  android:id="@+id/rvSales"
-                  android:layout_width="match_parent"
-                  android:layout_height="0dp"
-                  android:layout_weight="1"/>
-
-              <Button
-                  android:id="@+id/btnAddSale"
-                  android:layout_width="match_parent"
-                  android:layout_height="56dp"
-                  android:text="+ Добавить тестовую продажу"
-                  android:textColor="@color/coffee_dark"
-                  android:textStyle="bold"
-                  android:backgroundTint="@color/coffee_gold"
-                  android:layout_marginTop="8dp"/>
-          </LinearLayout>
-          EOF
-
-          cat << 'EOF' > app/src/main/res/layout/item_sale.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:layout_marginBottom="8dp"
-              app:cardCornerRadius="10dp"
-              app:cardBackgroundColor="@color/coffee_card">
-
-              <LinearLayout
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:orientation="horizontal"
-                  android:padding="14dp"
-                  android:gravity="center_vertical">
-
-                  <LinearLayout
-                      android:layout_width="0dp"
-                      android:layout_height="wrap_content"
-                      android:layout_weight="1"
-                      android:orientation="vertical">
+                          android:layout_width="match_parent"
+                          android:layout_height="1dp"
+                          android:background="#5D4037"
+                          android:layout_marginTop="12dp"
+                          android:layout_marginBottom="12dp" />
 
                       <TextView
-                          android:id="@+id/tvProductName"
+                          android:id="@+id/tvHeartbeat"
                           android:layout_width="wrap_content"
                           android:layout_height="wrap_content"
-                          android:textColor="@color/white"
-                          android:textStyle="bold"
-                          android:textSize="16sp"/>
+                          android:text="💓 Heartbeat: #0"
+                          android:textColor="@color/coffee_gold"
+                          android:textSize="15sp" />
 
                       <TextView
                           android:id="@+id/tvTime"
                           android:layout_width="wrap_content"
                           android:layout_height="wrap_content"
+                          android:text="🕒 Последний пинг: --:--:--"
                           android:textColor="@color/text_secondary"
-                          android:textSize="12sp"/>
+                          android:textSize="14sp"
+                          android:layout_marginTop="6dp" />
                   </LinearLayout>
+              </androidx.cardview.widget.CardView>
 
-                  <LinearLayout
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:orientation="vertical"
-                      android:gravity="end">
-
-                      <TextView
-                          android:id="@+id/tvPrice"
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:textColor="@color/coffee_gold"
-                          android:textStyle="bold"
-                          android:textSize="16sp"/>
-
-                      <TextView
-                          android:id="@+id/tvProfit"
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:textColor="@color/coffee_green"
-                          android:textSize="12sp"/>
-                  </LinearLayout>
-              </LinearLayout>
-          </androidx.cardview.widget.CardView>
-          EOF
-
-          # --- Products (Prices/Cost) ---
-          cat << 'EOF' > app/src/main/res/layout/activity_products.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:background="@color/bg"
-              android:padding="16dp">
-
-              <TextView
-                  android:id="@+id/tvTitle"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:textSize="22sp"
-                  android:textStyle="bold"
-                  android:textColor="@color/coffee_gold"
-                  android:layout_marginBottom="12dp"/>
-
-              <androidx.recyclerview.widget.RecyclerView
-                  android:id="@+id/rvProducts"
+              <Button
+                  android:id="@+id/btnPing"
                   android:layout_width="match_parent"
-                  android:layout_height="0dp"
-                  android:layout_weight="1"/>
+                  android:layout_height="56dp"
+                  android:text="ОТПРАВИТЬ ПИНГ"
+                  android:textColor="@color/coffee_dark"
+                  android:textStyle="bold"
+                  android:backgroundTint="@color/coffee_gold"
+                  android:layout_marginBottom="12dp" />
+
+              <Button
+                  android:id="@+id/btnReboot"
+                  android:layout_width="match_parent"
+                  android:layout_height="56dp"
+                  android:text="⚡ ROOT REBOOT"
+                  android:textColor="@color/white"
+                  android:textStyle="bold"
+                  android:backgroundTint="@color/coffee_red" />
           </LinearLayout>
           EOF
 
-          cat << 'EOF' > app/src/main/res/layout/item_product.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:layout_marginBottom="8dp"
-              app:cardCornerRadius="10dp"
-              app:cardBackgroundColor="@color/coffee_card">
+          # MainActivity.kt
+          cat << 'EOF' > app/src/main/java/com/coffee/telemetry/MainActivity.kt
+          package com.coffee.telemetry
 
-              <LinearLayout
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:orientation="vertical"
-                  android:padding="14dp">
+          import android.os.Bundle
+          import android.os.Handler
+          import android.os.Looper
+          import android.widget.Button
+          import android.widget.TextView
+          import android.widget.Toast
+          import androidx.appcompat.app.AppCompatActivity
+          import java.io.DataOutputStream
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
+          import kotlin.concurrent.thread
 
-                  <TextView
-                      android:id="@+id/tvName"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:textColor="@color/white"
-                      android:textStyle="bold"
-                      android:textSize="16sp"
-                      android:layout_marginBottom="8dp"/>
+          class MainActivity : AppCompatActivity() {
 
-                  <LinearLayout
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
-                      android:orientation="horizontal">
+              private var heartbeatCount = 0
+              private val handler = Handler(Looper.getMainLooper())
+              
+              private lateinit var tvHeartbeat: TextView
+              private lateinit var tvTime: TextView
+              private lateinit var btnPing: Button
+              private lateinit var btnReboot: Button
 
-                      <LinearLayout
-                          android:layout_width="0dp"
-                          android:layout_height="wrap_content"
-                          android:layout_weight="1"
-                          android:orientation="vertical"
-                          android:layout_marginEnd="8dp">
-                          <TextView
-                              android:id="@+id/tvLabel1"
-                              android:layout_width="wrap_content"
-                              android:layout_height="wrap_content"
-                              android:textColor="@color/text_secondary"
-                              android:textSize="11sp"/>
-                          <EditText
-                              android:id="@+id/etValue"
-                              android:layout_width="match_parent"
-                              android:layout_height="48dp"
-                              android:background="@drawable/edit_bg"
-                              android:textColor="@color/white"
-                              android:inputType="numberDecimal"
-                              android:padding="12dp"
-                              android:textSize="15sp"/>
-                      </LinearLayout>
+              private val heartbeatRunnable = object : Runnable {
+                  override fun run() {
+                      heartbeatCount++
+                      val currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                      tvHeartbeat.text = "💓 Heartbeat: #$heartbeatCount (OK)"
+                      tvTime.text = "🕒 Последний пинг: $currentTime"
+                      handler.postDelayed(this, 2000)
+                  }
+              }
 
-                      <Button
-                          android:id="@+id/btnSave"
-                          android:layout_width="wrap_content"
-                          android:layout_height="48dp"
-                          android:layout_gravity="bottom"
-                          android:text="OK"
-                          android:textColor="@color/coffee_dark"
-                          android:textStyle="bold"
-                          android:backgroundTint="@color/coffee_gold"
-                          android:minWidth="72dp"/>
-                  </LinearLayout>
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
 
-                  <TextView
-                      android:id="@+id/tvMargin"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:textColor="@color/coffee_green"
-                      android:textSize="12sp"
-                      android:layout_marginTop="6dp"/>
-              </LinearLayout>
-          </androidx.cardview.widget.CardView>
+                  tvHeartbeat = findViewById(R.id.tvHeartbeat)
+                  tvTime = findViewById(R.id.tvTime)
+                  btnPing = findViewById(R.id.btnPing)
+                  btnReboot = findViewById(R.id.btnReboot)
+
+                  handler.post(heartbeatRunnable)
+
+                  btnPing.setOnClickListener {
+                      heartbeatCount++
+                      val currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                      tvHeartbeat.text = "💓 Heartbeat: #$heartbeatCount (Ручной)"
+                      tvTime.text = "🕒 Последний пинг: $currentTime"
+                      Toast.makeText(this, "Heartbeat отправлен!", Toast.LENGTH_SHORT).show()
+                  }
+
+                  btnReboot.setOnClickListener {
+                      executeRootReboot()
+                  }
+              }
+
+              private fun executeRootReboot() {
+                  thread {
+                      try {
+                          val process = Runtime.getRuntime().exec("su")
+                          val os = DataOutputStream(process.outputStream)
+                          os.writeBytes("reboot\n")
+                          os.flush()
+                          os.close()
+                          handler.post {
+                              Toast.makeText(this@MainActivity, "Команда Root Reboot отправлена", Toast.LENGTH_SHORT).show()
+                          }
+                      } catch (e: Exception) {
+                          handler.post {
+                              Toast.makeText(this@MainActivity, "Ошибка Root: ${e.message}", Toast.LENGTH_LONG).show()
+                          }
+                      }
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  handler.removeCallbacks(heartbeatRunnable)
+              }
+          }
           EOF
 
-          # --- Errors ---
-          cat << 'EOF' > app/src/main/res/layout/activity_errors.xml
+          # Manifest
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:background="@color/bg"
-              android:padding="16dp">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-              <TextView
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:text="⚠️ Ошибки машины"
-                  android:textSize="22sp"
-                  android:textStyle="bold"
-                  android:textColor="@color/coffee_gold"
-                  android:layout_marginBottom="12dp"/>
+              <application
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:theme="@style/AppTheme">
+                  <activity
+                      android:name="com.coffee.telemetry.MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
 
-              <TextView
-                  android:id="@+id/tvErrorCount"
-                  android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"
-                  android:textColor="@color/text_secondary"
-                  android:layout_marginBottom="8dp"/>
+      # 3. Сборка APK
+      - name: Build Android APK
+        run: |
+          gradle wrapper
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-              <androidx.recyclerview.widget.RecyclerView
-                  android:id="@+id/rvErrors"
-                  android:layout_width="match_parent"
-                  android:layout_height="0dp"
-                  android:layout_weight="1"/>
+      # 4. Отправка APK через Python со 100% гарантией доставки
+      - name: Send APK Document to Telegram
+        run: |
+          python3 - << 'EOF'
+          import os, sys, glob, requests
 
-              <Button
-                  android:id="@+id/btnClearAll"
-                  android:layout_width="match_parent"
-                  android:layout_height="56dp"
-                  android:text="🗑 СБРОСИТЬ ВСЕ ОШИБКИ"
-                  android:textColor="@color/white"
-                  android:textStyle="bold"
-                  android:backgroundTint="@color/coffee_red"
-                  
+          token = os.environ["BOT_TOKEN"]
+          chat_id = os.environ["CHAT_ID"]
+
+          # Ищем скомпилированный APK
+          apks = glob.glob("app/build/outputs/apk/debug/*.apk")
+          if not apks:
+              print("❌ ОШИБКА: Файл APK не найден в app/build/outputs/apk/debug/")
+              sys.exit(1)
+
+          apk_path = apks[0]
+          apk_name = "Cofferno-v4.6.apk"
+          size_mb = os.path.getsize(apk_path) / (1024 * 1024)
+
+          print(f"📦 Найден файл: {apk_path} ({size_mb:.2f} MB)")
+          print("🚀 Начинаю загрузку в Telegram...")
+
+          url = f"https://api.telegram.org/bot{token}/sendDocument"
+
+          with open(apk_path, "rb") as f:
+              files = {
+                  "document": (apk_name, f, "application/vnd.android.package-archive")
+              }
+              data = {
+                  "chat_id": chat_id,
+                  "caption": "☕ *Cofferno v4.6 готов!*\n\n📱 Статус: Собрано успешно\n⚡ Встроен Root Reboot и Telemetry UI",
+                  "parse_mode": "Markdown"
+              }
+
+              res = requests.post(url, data=data, files=files, timeout=120)
+
+          resp_json = res.json()
+          print("Ответ сервера Telegram:", resp_json)
+
+          if not resp_json.get("ok"):
+              print("❌ Telegram отклонил файл!")
+              sys.exit(1)
+
+          print("🎉 APK успешно доставлен в ваш Telegram!")
+          EOF
+
+      # 5. Уведомление в случае сбоя
+      - name: Notify On Failure
+        if: failure()
+        run: |
+          python3 - << 'EOF'
+          import os, requests
+          token = os.environ.get("BOT_TOKEN")
+          chat_id = os.environ.get("CHAT_ID")
+          if token and chat_id:
+              requests.post(
+                  f"https://api.telegram.org/bot{token}/sendMessage",
+                  json={"chat_id": chat_id, "text": "❌ Ошибка при сборке Cofferno! Посмотрите логи в GitHub Actions."}
+              )
+          EOF
