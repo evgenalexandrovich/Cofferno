@@ -64,9 +64,9 @@ jobs:
               defaultConfig {
                   applicationId "com.coffee.telemetry"
                   minSdk 23
-                  targetSdk 34
+                  targetSdk 33
                   versionCode 63
-                  versionName "6.3-DYNAMIC-NATIVE"
+                  versionName "6.3-STABLE"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -94,8 +94,6 @@ jobs:
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
               <application
                   android:allowBackup="true"
                   android:icon="@android:drawable/sym_def_app_icon"
@@ -238,26 +236,126 @@ jobs:
                           </com.google.android.material.card.MaterialCardView>
 
                           <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                              android:text="📊 Напитки из меню кофемашины" android:textColor="@color/white"
+                              android:text="📊 Разбивка по напиткам" android:textColor="@color/white"
                               android:textSize="14sp" android:textStyle="bold" android:layout_marginBottom="8dp"/>
 
-                          <!-- ДИНАМИЧЕСКИЙ КОНТЕЙНЕР ДЛЯ ВСЕХ НАПИТКОВ ИЗ РОДНОГО ПО -->
-                          <LinearLayout android:id="@+id/ll_dynamic_drinks_container"
+                          <!-- Drink 1 -->
+                          <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:orientation="vertical">
-                              <TextView android:id="@+id/tv_no_drinks_hint"
-                                  android:layout_width="match_parent" android:layout_height="wrap_content"
-                                  android:text="Ожидание данных меню от аппарата..."
-                                  android:textColor="@color/muted" android:textSize="12sp"
-                                  android:gravity="center" android:padding="20dp"/>
-                          </LinearLayout>
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="10dp"
+                              android:layout_marginBottom="8dp">
+                              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                  android:orientation="horizontal" android:padding="12dp" android:gravity="center_vertical">
+                                  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                      android:layout_weight="1" android:orientation="vertical">
+                                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                          android:text="☕ Эспрессо" android:textColor="@color/white"
+                                          android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d1_info" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 шт × 0 ₽"
+                                          android:textColor="@color/muted" android:textSize="11sp"/>
+                                  </LinearLayout>
+                                  <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:orientation="vertical" android:gravity="end">
+                                      <TextView android:id="@+id/tv_d1_revenue" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 ₽"
+                                          android:textColor="@color/accent" android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d1_profit" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="+0 ₽"
+                                          android:textColor="@color/green" android:textSize="11sp"/>
+                                  </LinearLayout>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+
+                          <!-- Drink 2 -->
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="10dp"
+                              android:layout_marginBottom="8dp">
+                              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                  android:orientation="horizontal" android:padding="12dp" android:gravity="center_vertical">
+                                  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                      android:layout_weight="1" android:orientation="vertical">
+                                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                          android:text="🥛 Капучино" android:textColor="@color/white"
+                                          android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d2_info" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 шт × 0 ₽"
+                                          android:textColor="@color/muted" android:textSize="11sp"/>
+                                  </LinearLayout>
+                                  <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:orientation="vertical" android:gravity="end">
+                                      <TextView android:id="@+id/tv_d2_revenue" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 ₽"
+                                          android:textColor="@color/accent" android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d2_profit" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="+0 ₽"
+                                          android:textColor="@color/green" android:textSize="11sp"/>
+                                  </LinearLayout>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+
+                          <!-- Drink 3 -->
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="10dp"
+                              android:layout_marginBottom="8dp">
+                              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                  android:orientation="horizontal" android:padding="12dp" android:gravity="center_vertical">
+                                  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                      android:layout_weight="1" android:orientation="vertical">
+                                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                          android:text="🍵 Латте" android:textColor="@color/white"
+                                          android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d3_info" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 шт × 0 ₽"
+                                          android:textColor="@color/muted" android:textSize="11sp"/>
+                                  </LinearLayout>
+                                  <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:orientation="vertical" android:gravity="end">
+                                      <TextView android:id="@+id/tv_d3_revenue" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 ₽"
+                                          android:textColor="@color/accent" android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d3_profit" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="+0 ₽"
+                                          android:textColor="@color/green" android:textSize="11sp"/>
+                                  </LinearLayout>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
+
+                          <!-- Drink 4 -->
+                          <com.google.android.material.card.MaterialCardView
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="10dp"
+                              android:layout_marginBottom="8dp">
+                              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                  android:orientation="horizontal" android:padding="12dp" android:gravity="center_vertical">
+                                  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                      android:layout_weight="1" android:orientation="vertical">
+                                      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                          android:text="🫗 Американо" android:textColor="@color/white"
+                                          android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d4_info" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 шт × 0 ₽"
+                                          android:textColor="@color/muted" android:textSize="11sp"/>
+                                  </LinearLayout>
+                                  <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:orientation="vertical" android:gravity="end">
+                                      <TextView android:id="@+id/tv_d4_revenue" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="0 ₽"
+                                          android:textColor="@color/accent" android:textSize="14sp" android:textStyle="bold"/>
+                                      <TextView android:id="@+id/tv_d4_profit" android:layout_width="wrap_content"
+                                          android:layout_height="wrap_content" android:text="+0 ₽"
+                                          android:textColor="@color/green" android:textSize="11sp"/>
+                                  </LinearLayout>
+                              </LinearLayout>
+                          </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
 
                       <!-- TAB 2: УПРАВЛЕНИЕ -->
                       <LinearLayout android:id="@+id/tab_manage" android:layout_width="match_parent"
                           android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
 
-                          <!-- Add Machine -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -288,7 +386,6 @@ jobs:
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Dynamic Cost Settings -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp"
@@ -296,21 +393,46 @@ jobs:
                               <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                                   android:orientation="vertical" android:padding="16dp">
                                   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                      android:text="📉 Себестоимость напитков (₽/порция)" android:textColor="@color/white"
+                                      android:text="📉 Себестоимость напитков (₽/шт)" android:textColor="@color/white"
                                       android:textSize="15sp" android:textStyle="bold" android:layout_marginBottom="8dp"/>
-                                  
-                                  <LinearLayout android:id="@+id/ll_dynamic_cost_container"
-                                      android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:orientation="vertical"/>
-
+                                  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:orientation="horizontal" android:layout_marginBottom="6dp">
+                                      <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                                          android:layout_weight="1" android:text="Эспрессо" android:textColor="@color/muted" android:textSize="13sp"/>
+                                      <EditText android:id="@+id/et_cost1" android:layout_width="80dp"
+                                          android:layout_height="wrap_content" android:inputType="number"
+                                          android:text="35" android:textColor="@color/white" android:textSize="13sp" android:gravity="center"/>
+                                  </LinearLayout>
+                                  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:orientation="horizontal" android:layout_marginBottom="6dp">
+                                      <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                                          android:layout_weight="1" android:text="Капучино" android:textColor="@color/muted" android:textSize="13sp"/>
+                                      <EditText android:id="@+id/et_cost2" android:layout_width="80dp"
+                                          android:layout_height="wrap_content" android:inputType="number"
+                                          android:text="55" android:textColor="@color/white" android:textSize="13sp" android:gravity="center"/>
+                                  </LinearLayout>
+                                  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:orientation="horizontal" android:layout_marginBottom="6dp">
+                                      <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                                          android:layout_weight="1" android:text="Латте" android:textColor="@color/muted" android:textSize="13sp"/>
+                                      <EditText android:id="@+id/et_cost3" android:layout_width="80dp"
+                                          android:layout_height="wrap_content" android:inputType="number"
+                                          android:text="60" android:textColor="@color/white" android:textSize="13sp" android:gravity="center"/>
+                                  </LinearLayout>
+                                  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:orientation="horizontal" android:layout_marginBottom="10dp">
+                                      <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                                          android:layout_weight="1" android:text="Американо" android:textColor="@color/muted" android:textSize="13sp"/>
+                                      <EditText android:id="@+id/et_cost4" android:layout_width="80dp"
+                                          android:layout_height="wrap_content" android:inputType="number"
+                                          android:text="30" android:textColor="@color/white" android:textSize="13sp" android:gravity="center"/>
+                                  </LinearLayout>
                                   <Button android:id="@+id/btn_save_cost" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="💾 Сохранить себестоимость"
-                                      android:backgroundTint="@color/accent" android:textColor="@color/dark"
-                                      android:layout_marginTop="8dp"/>
+                                      android:backgroundTint="@color/accent" android:textColor="@color/dark"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
 
-                          <!-- Actions -->
                           <com.google.android.material.card.MaterialCardView
                               android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
@@ -351,14 +473,11 @@ jobs:
                                       android:layout_marginBottom="12dp"/>
                                   <com.google.android.material.switchmaterial.SwitchMaterial
                                       android:id="@+id/switch_agent" android:layout_width="match_parent"
-                                      android:layout_height="wrap_content" android:text="Фоновая служба чтения родного ПО"
+                                      android:layout_height="wrap_content" android:text="Фоновая служба телеметрии"
                                       android:textColor="@color/white"/>
                                   <TextView android:id="@+id/tv_agent_status" android:layout_width="match_parent"
                                       android:layout_height="wrap_content" android:text="Остановлена"
                                       android:textColor="@color/yellow" android:textSize="12sp" android:layout_marginTop="8dp"/>
-                                  <TextView android:id="@+id/tv_native_info" android:layout_width="match_parent"
-                                      android:layout_height="wrap_content" android:text="Поиск базы данных родного ПО..."
-                                      android:textColor="@color/muted" android:textSize="11sp" android:layout_marginTop="6dp"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
@@ -376,16 +495,10 @@ jobs:
           </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
-          # Models.kt
           cat << 'EOF' > $P/Models.kt
           package com.coffee.telemetry
 
-          data class DrinkData(
-              val id: String,
-              val name: String,
-              val count: Int,
-              val price: Int
-          )
+          data class DrinkData(val name: String, val count: Int, val price: Int)
 
           data class TelemetryPacket(
               val serial: String,
@@ -397,31 +510,486 @@ jobs:
           )
           EOF
 
-          # NativeCoffeeReader.kt (Модуль поиска и чтения баз данных родного ПО)
-          cat << 'EOF' > $P/NativeCoffeeReader.kt
+          cat << 'EOF' > $P/AgentService.kt
+          package com.coffee.telemetry
+
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.Service
+          import android.content.Context
+          import android.content.Intent
+          import android.os.Build
+          import android.os.IBinder
+          import android.os.PowerManager
+          import android.provider.Settings
+          import androidx.core.app.NotificationCompat
+          import com.google.gson.Gson
+          import org.eclipse.paho.client.mqttv3.*
+          import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+          import java.util.concurrent.Executors
+          import java.util.concurrent.ScheduledExecutorService
+          import java.util.concurrent.TimeUnit
+
+          class AgentService : Service() {
+              private val broker = "tcp://broker.hivemq.com:1883"
+              private var client: MqttClient? = null
+              private val gson = Gson()
+              private var wake: PowerManager.WakeLock? = null
+              private var sched: ScheduledExecutorService? = null
+              private val exec = Executors.newSingleThreadExecutor()
+              private val drinkNames = listOf("Эспрессо", "Капучино", "Латте", "Американо")
+              private val drinkPrices = listOf(120, 180, 200, 130)
+
+              override fun onBind(i: Intent?): IBinder? = null
+
+              override fun onCreate() {
+                  super.onCreate()
+                  val ch = "cofferno_agent"
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val nm = getSystemService(NotificationManager::class.java)
+                      nm?.createNotificationChannel(
+                          NotificationChannel(ch, "Agent", NotificationManager.IMPORTANCE_LOW)
+                      )
+                  }
+                  val notification = NotificationCompat.Builder(this, ch)
+                      .setContentTitle("☕ Cofferno Agent")
+                      .setContentText("Телеметрия активна")
+                      .setSmallIcon(android.R.drawable.stat_notify_sync)
+                      .setOngoing(true)
+                      .build()
+
+                  startForeground(1, notification)
+
+                  val pm = getSystemService(POWER_SERVICE) as PowerManager
+                  wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:W")
+                  wake?.acquire(86400000L)
+                  startLoop()
+              }
+
+              private fun getSerial(): String {
+                  return try {
+                      val s = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "lv307_default"
+                      s.trim().lowercase()
+                  } catch (e: Exception) { "lv307_default" }
+              }
+
+              private fun getDrinkCounts(): IntArray {
+                  val prefs = getSharedPreferences("cofferno_agent_db", Context.MODE_PRIVATE)
+                  return intArrayOf(
+                      prefs.getInt("cnt_0", 45),
+                      prefs.getInt("cnt_1", 38),
+                      prefs.getInt("cnt_2", 29),
+                      prefs.getInt("cnt_3", 30)
+                  )
+              }
+
+              private fun resetDrinkCounts() {
+                  val prefs = getSharedPreferences("cofferno_agent_db", Context.MODE_PRIVATE)
+                  prefs.edit()
+                      .putInt("cnt_0", 0)
+                      .putInt("cnt_1", 0)
+                      .putInt("cnt_2", 0)
+                      .putInt("cnt_3", 0)
+                      .apply()
+              }
+
+              private fun startLoop() {
+                  exec.execute {
+                      while (wake?.isHeld == true) {
+                          try {
+                              if (client == null || client?.isConnected == false) {
+                                  val sn = getSerial()
+                                  client = MqttClient(broker, "AGT_$sn", MemoryPersistence())
+                                  client?.connect(MqttConnectOptions().apply {
+                                      isAutomaticReconnect = true
+                                      connectionTimeout = 15
+                                      keepAliveInterval = 30
+                                  })
+                                  client?.setCallback(object : MqttCallback {
+                                      override fun connectionLost(c: Throwable?) {}
+                                      override fun messageArrived(t: String?, m: MqttMessage?) {
+                                          val cmd = m?.toString()?.trim() ?: return
+                                          when (cmd) {
+                                              "RESET_COUNTERS" -> {
+                                                  resetDrinkCounts()
+                                                  send()
+                                              }
+                                              "FLUSH" -> {}
+                                              "TOGGLE_LOCK" -> {}
+                                          }
+                                      }
+                                      override fun deliveryComplete(t: IMqttDeliveryToken?) {}
+                                  })
+                                  client?.subscribe("cofferno/$sn/commands", 1)
+                                  sched?.shutdownNow()
+                                  sched = Executors.newSingleThreadScheduledExecutor()
+                                  sched?.scheduleAtFixedRate({ send() }, 0, 3, TimeUnit.SECONDS)
+                              }
+                          } catch (e: Exception) { e.printStackTrace() }
+                          try { Thread.sleep(5000) } catch (_: Exception) {}
+                      }
+                  }
+              }
+
+              private fun send() {
+                  try {
+                      if (client?.isConnected != true) return
+                      val counts = getDrinkCounts()
+                      val drinks = drinkNames.indices.map {
+                          DrinkData(drinkNames[it], counts[it], drinkPrices[it])
+                      }
+                      val pkt = TelemetryPacket(getSerial(), 93.2, 9.1, "Готов к выдаче", drinks)
+                      val msg = MqttMessage(gson.toJson(pkt).toByteArray()).apply {
+                          qos = 1
+                          isRetained = true
+                      }
+                      client?.publish("cofferno/${getSerial()}/telemetry", msg)
+                  } catch (e: Exception) { e.printStackTrace() }
+              }
+
+              override fun onDestroy() {
+                  sched?.shutdownNow()
+                  try { client?.disconnect() } catch (_: Exception) {}
+                  wake?.release()
+                  super.onDestroy()
+              }
+          }
+          EOF
+
+          cat << 'EOF' > $P/BootReceiver.kt
+          package com.coffee.telemetry
+
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.os.Build
+
+          class BootReceiver : BroadcastReceiver() {
+              override fun onReceive(ctx: Context, intent: Intent) {
+                  if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
+                      intent.action == "android.intent.action.QUICKBOOT_POWERON") {
+                      val p = ctx.getSharedPreferences("cofferno", Context.MODE_PRIVATE)
+                      if (p.getBoolean("agent_on", false)) {
+                          val i = Intent(ctx, AgentService::class.java)
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i)
+                          else ctx.startService(i)
+                      }
+                  }
+              }
+          }
+          EOF
+
+          cat << 'EOF' > $P/MainActivity.kt
           package com.coffee.telemetry
 
           import android.content.Context
-          import android.database.sqlite.SQLiteDatabase
-          import java.io.File
+          import android.content.Intent
+          import android.os.Build
+          import android.os.Bundle
+          import android.os.Handler
+          import android.os.Looper
+          import android.provider.Settings
+          import android.view.View
+          import android.widget.*
+          import androidx.appcompat.app.AppCompatActivity
+          import androidx.core.content.ContextCompat
+          import com.google.android.material.bottomnavigation.BottomNavigationView
+          import com.google.android.material.switchmaterial.SwitchMaterial
+          import com.google.gson.Gson
+          import com.google.gson.reflect.TypeToken
+          import org.eclipse.paho.client.mqttv3.*
+          import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+          import java.util.concurrent.Executors
+          import kotlin.math.min
 
-          object NativeCoffeeReader {
+          class MainActivity : AppCompatActivity() {
+              private val broker = "tcp://broker.hivemq.com:1883"
+              private var client: MqttClient? = null
+              private val gson = Gson()
+              private var lastMsg = 0L
+              private var connected = false
+              private var currentSerial = ""
+              private val h = Handler(Looper.getMainLooper())
 
-              fun readNativeDrinks(context: Context): List<DrinkData> {
-                  val drinks = mutableListOf<DrinkData>()
-                  val prefs = context.getSharedPreferences("cofferno_native_db", Context.MODE_PRIVATE)
+              private val watch = object : Runnable {
+                  override fun run() {
+                      val tv = findViewById<TextView>(R.id.tv_status)
+                      when {
+                          !connected -> {
+                              tv.text = "● Подключение к MQTT..."
+                              tv.setTextColor(c(R.color.yellow))
+                          }
+                          System.currentTimeMillis() - lastMsg > 9000 -> {
+                              tv.text = "🔴 Аппарат оффлайн"
+                              tv.setTextColor(c(R.color.red))
+                          }
+                          else -> {
+                              tv.text = "🟢 Аппарат онлайн"
+                              tv.setTextColor(c(R.color.green))
+                          }
+                      }
+                      h.postDelayed(this, 2000)
+                  }
+              }
 
-                  // 1. Попытка сканирования директорий родного ПО автомата
-                  val possiblePaths = listOf(
-                      "/sdcard/vending/drinks.db",
-                      "/sdcard/coffee/database.db",
-                      "/data/data/com.vending.coffee/databases/drinks.db",
-                      "/data/data/com.coffee.lv307/databases/data.db"
-                  )
+              private fun c(id: Int) = ContextCompat.getColor(this, id)
 
-                  var foundDb = false
-                  for (path in possiblePaths) {
-                      val file = File(path)
-                      if (file.exists() && file.canRead()) {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+                  val prefs = getSharedPreferences("cofferno", Context.MODE_PRIVATE)
+
+                  val tabSales = findViewById<LinearLayout>(R.id.tab_sales)
+                  val tabManage = findViewById<LinearLayout>(R.id.tab_manage)
+                  val tabAgent = findViewById<LinearLayout>(R.id.tab_agent)
+
+                  findViewById<BottomNavigationView>(R.id.bottom_nav).setOnItemSelectedListener {
+                      tabSales.visibility = if (it.itemId == R.id.nav_sales) View.VISIBLE else View.GONE
+                      tabManage.visibility = if (it.itemId == R.id.nav_manage) View.VISIBLE else View.GONE
+                      tabAgent.visibility = if (it.itemId == R.id.nav_agent) View.VISIBLE else View.GONE
+                      true
+                  }
+
+                  val mySerial = (Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown").trim().lowercase()
+                  findViewById<TextView>(R.id.tv_my_serial).text = "S/N этого устройства: $mySerial"
+
+                  val machines = loadMachines()
+                  if (machines.isNotEmpty()) {
+                      currentSerial = machines[0]
+                      findViewById<TextView>(R.id.tv_serial).text = "S/N: $currentSerial"
+                  }
+                  refreshMachineList()
+
+                  // Add machine
+                  findViewById<Button>(R.id.btn_add).setOnClickListener {
+                      val sn = findViewById<EditText>(R.id.et_serial).text.toString().trim().lowercase()
+                      if (sn.isNotEmpty()) {
+                          val list = loadMachines().toMutableList()
+                          if (!list.contains(sn)) {
+                              list.add(sn)
+                              saveMachines(list)
+                              currentSerial = sn
+                              findViewById<TextView>(R.id.tv_serial).text = "S/N: $sn"
+                              refreshMachineList()
+                              reconnectMqtt()
+                              Toast.makeText(this, "Аппарат $sn добавлен", Toast.LENGTH_SHORT).show()
+                          }
+                          findViewById<EditText>(R.id.et_serial).text.clear()
+                      }
+                  }
+
+                  // Save costs
+                  findViewById<Button>(R.id.btn_save_cost).setOnClickListener {
+                      val e = prefs.edit()
+                      e.putInt("cost_0", findViewById<EditText>(R.id.et_cost1).text.toString().toIntOrNull() ?: 35)
+                      e.putInt("cost_1", findViewById<EditText>(R.id.et_cost2).text.toString().toIntOrNull() ?: 55)
+                      e.putInt("cost_2", findViewById<EditText>(R.id.et_cost3).text.toString().toIntOrNull() ?: 60)
+                      e.putInt("cost_3", findViewById<EditText>(R.id.et_cost4).text.toString().toIntOrNull() ?: 30)
+                      e.apply()
+                      Toast.makeText(this, "Себестоимость сохранена", Toast.LENGTH_SHORT).show()
+                  }
+
+                  findViewById<EditText>(R.id.et_cost1).setText(prefs.getInt("cost_0", 35).toString())
+                  findViewById<EditText>(R.id.et_cost2).setText(prefs.getInt("cost_1", 55).toString())
+                  findViewById<EditText>(R.id.et_cost3).setText(prefs.getInt("cost_2", 60).toString())
+                  findViewById<EditText>(R.id.et_cost4).setText(prefs.getInt("cost_3", 30).toString())
+
+                  // Commands
+                  findViewById<Button>(R.id.btn_reset).setOnClickListener {
+                      if (currentSerial.isEmpty()) {
+                          Toast.makeText(this, "Выберите или добавьте аппарат!", Toast.LENGTH_SHORT).show()
+                      } else {
+                          sendCmd("RESET_COUNTERS")
+                          Toast.makeText(this, "Команда обнуления отправлена", Toast.LENGTH_SHORT).show()
+                      }
+                  }
+                  findViewById<Button>(R.id.btn_flush).setOnClickListener {
+                      sendCmd("FLUSH")
+                      Toast.makeText(this, "Промывка запущена", Toast.LENGTH_SHORT).show()
+                  }
+                  findViewById<Button>(R.id.btn_lock).setOnClickListener {
+                      sendCmd("TOGGLE_LOCK")
+                      Toast.makeText(this, "Команда блокировки отправлена", Toast.LENGTH_SHORT).show()
+                  }
+
+                  // Agent Switch
+                  val sw = findViewById<SwitchMaterial>(R.id.switch_agent)
+                  val tvAg = findViewById<TextView>(R.id.tv_agent_status)
+                  sw.isChecked = prefs.getBoolean("agent_on", false)
+                  tvAg.text = if (sw.isChecked) "🟢 Работает в фоне" else "Остановлена"
+                  sw.setOnCheckedChangeListener { _, on ->
+                      prefs.edit().putBoolean("agent_on", on).apply()
+                      if (on) {
+                          tvAg.text = "🟢 Запуск..."
+                          val i = Intent(this, AgentService::class.java)
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
+                          else startService(i)
+                          Handler(Looper.getMainLooper()).postDelayed({ moveTaskToBack(true) }, 1000)
+                      } else {
+                          stopService(Intent(this, AgentService::class.java))
+                          tvAg.text = "Остановлена"
+                      }
+                  }
+
+                  reconnectMqtt()
+                  h.post(watch)
+              }
+
+              private fun loadMachines(): List<String> {
+                  val s = getSharedPreferences("cofferno", Context.MODE_PRIVATE).getString("machines", "[]") ?: "[]"
+                  return try {
+                      gson.fromJson(s, object : TypeToken<List<String>>() {}.type) ?: emptyList()
+                  } catch (e: Exception) {
+                      emptyList()
+                  }
+              }
+
+              private fun saveMachines(list: List<String>) {
+                  getSharedPreferences("cofferno", Context.MODE_PRIVATE).edit().putString("machines", gson.toJson(list)).apply()
+              }
+
+              private fun refreshMachineList() {
+                  val machines = loadMachines()
+                  val container = findViewById<LinearLayout>(R.id.ll_machines_list)
+                  container.removeAllViews()
+
+                  if (machines.isEmpty()) {
+                      val tv = TextView(this).apply {
+                          text = "Нет добавленных машин"
+                          setTextColor(c(R.color.muted))
+                          textSize = 12f
+                      }
+                      container.addView(tv)
+                  } else {
+                      for (sn in machines) {
+                          val tvItem = TextView(this).apply {
+                              val isSelected = (sn == currentSerial)
+                              text = if (isSelected) "✅ $sn (Выбран)" else "• $sn (Нажмите для выбора)"
+                              setTextColor(if (isSelected) c(R.color.accent) else c(R.color.white))
+                              textSize = 13f
+                              setPadding(16, 16, 16, 16)
+                              setBackgroundColor(if (isSelected) c(R.color.card) else 0)
+                              setOnClickListener {
+                                  currentSerial = sn
+                                  findViewById<TextView>(R.id.tv_serial).text = "S/N: $currentSerial"
+                                  refreshMachineList()
+                                  Toast.makeText(this@MainActivity, "Выбран аппарат: $sn", Toast.LENGTH_SHORT).show()
+                              }
+                          }
+                          container.addView(tvItem)
+                      }
+                  }
+              }
+
+              private fun reconnectMqtt() {
+                  Executors.newSingleThreadExecutor().execute {
+                      while (true) {
                           try {
-                              val db 
+                              if (client == null || client?.isConnected == false) {
+                                  client = MqttClient(broker, "Phone_${System.currentTimeMillis() % 10000}", MemoryPersistence())
+                                  client?.connect(MqttConnectOptions().apply {
+                                      isAutomaticReconnect = true
+                                      connectionTimeout = 15
+                                      keepAliveInterval = 30
+                                  })
+                                  client?.setCallback(object : MqttCallback {
+                                      override fun connectionLost(c: Throwable?) { connected = false }
+                                      override fun messageArrived(topic: String?, msg: MqttMessage?) {
+                                          val json = msg?.toString() ?: return
+                                          val pkt = gson.fromJson(json, TelemetryPacket::class.java)
+                                          if (pkt.serial == currentSerial || currentSerial.isEmpty()) {
+                                              lastMsg = System.currentTimeMillis()
+                                              runOnUiThread { updateSales(pkt) }
+                                          }
+                                      }
+                                      override fun deliveryComplete(t: IMqttDeliveryToken?) {}
+                                  })
+                                  val machines = loadMachines()
+                                  for (sn in machines) {
+                                      client?.subscribe("cofferno/$sn/telemetry", 1)
+                                  }
+                                  connected = true
+                              }
+                          } catch (e: Exception) { connected = false }
+                          try { Thread.sleep(5000) } catch (_: Exception) {}
+                      }
+                  }
+              }
+
+              private fun sendCmd(cmd: String) {
+                  Executors.newSingleThreadExecutor().execute {
+                      try {
+                          if (currentSerial.isNotEmpty() && client?.isConnected == true) {
+                              client?.publish("cofferno/$currentSerial/commands", MqttMessage(cmd.toByteArray()).apply { qos = 1 })
+                          }
+                      } catch (_: Exception) {}
+                  }
+              }
+
+              private fun updateSales(pkt: TelemetryPacket) {
+                  try {
+                      findViewById<TextView>(R.id.tv_serial).text = "S/N: ${pkt.serial}"
+                      val prefs = getSharedPreferences("cofferno", Context.MODE_PRIVATE)
+                      var totalRev = 0
+                      var totalProfit = 0
+                      var totalCups = 0
+                      val ids = listOf(
+                          intArrayOf(R.id.tv_d1_info, R.id.tv_d1_revenue, R.id.tv_d1_profit),
+                          intArrayOf(R.id.tv_d2_info, R.id.tv_d2_revenue, R.id.tv_d2_profit),
+                          intArrayOf(R.id.tv_d3_info, R.id.tv_d3_revenue, R.id.tv_d3_profit),
+                          intArrayOf(R.id.tv_d4_info, R.id.tv_d4_revenue, R.id.tv_d4_profit)
+                      )
+                      val count = min(pkt.drinks.size, 4)
+                      for (i in 0 until count) {
+                          val d = pkt.drinks[i]
+                          val cost = prefs.getInt("cost_$i", 35)
+                          val rev = d.count * d.price
+                          val profit = d.count * (d.price - cost)
+                          totalRev += rev
+                          totalProfit += profit
+                          totalCups += d.count
+                          findViewById<TextView>(ids[i][0]).text = "${d.count} шт × ${d.price} ₽ (себес: ${cost} ₽)"
+                          findViewById<TextView>(ids[i][1]).text = "$rev ₽"
+                          findViewById<TextView>(ids[i][2]).text = "+$profit ₽"
+                          findViewById<TextView>(ids[i][2]).setTextColor(if (profit >= 0) c(R.color.green) else c(R.color.red))
+                      }
+                      findViewById<TextView>(R.id.tv_total_revenue).text = "$totalRev ₽"
+                      findViewById<TextView>(R.id.tv_total_profit).text = "$totalProfit ₽"
+                      findViewById<TextView>(R.id.tv_total_cups).text = "Всего порций: $totalCups"
+                  } catch (_: Exception) {}
+              }
+
+              override fun onDestroy() {
+                  h.removeCallbacks(watch)
+                  try { client?.disconnect() } catch (_: Exception) {}
+                  super.onDestroy()
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Send APK to Telegram
+        if: success()
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK" ]; then
+            echo "Файл APK найден ($APK). Отправка в Telegram..."
+            RESP=$(curl -s -X POST \
+              -F "chat_id=${{ env.CHAT_ID }}" \
+              -F "caption=☕ Cofferno LV-307 v6.3 (Готово к установке)" \
+              -F "document=@$APK" \
+              "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument")
+            echo "Ответ от Telegram: $RESP"
+          else
+            echo "Ошибка: APK не скомпилировался!"
+            exit 1
+          fi
+
+      - name: Notify Fail
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ env.CHAT_ID }}" \
+            -d "text=❌ Ошибка компиляции Cofferno v6.3. Проверьте вкладку Actions на GitHub."
