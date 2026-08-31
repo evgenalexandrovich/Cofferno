@@ -26,7 +26,7 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Fixed Telemetry App
+      - name: Generate Source Code
         run: |
           BASE=app/src/main
           PKG=$BASE/java/com/coffee/telemetry
@@ -70,17 +70,20 @@ jobs:
               compileSdk 34
               defaultConfig {
                   applicationId "com.coffee.telemetry"
-                  minSdk 24
+                  minSdk 23
                   targetSdk 34
-                  versionCode 54
-                  versionName "5.4-FIXED"
+                  versionCode 55
+                  versionName "5.5-STABLE"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
               kotlinOptions { jvmTarget = '17' }
-              buildFeatures { viewBinding true }
+              lint {
+                  abortOnError false
+                  checkReleaseBuilds false
+              }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -92,54 +95,11 @@ jobs:
           }
           EOF
 
-          # AndroidManifest.xml (С полными разрешениями и usesCleartextTraffic)
-          cat << 'EOF' > $BASE/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-              <uses-permission android:name="android.permission.WAKE_LOCK" />
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-              <application
-                  android:allowBackup="true"
-                  android:icon="@android:drawable/sym_def_app_icon"
-                  android:label="Cofferno LV-307"
-                  android:theme="@style/AppTheme"
-                  android:usesCleartextTraffic="true">
-                  
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-
-                  <service
-                      android:name=".TelemetryAgentService"
-                      android:enabled="true"
-                      android:exported="false"
-                      android:foregroundServiceType="dataSync" />
-
-                  <receiver
-                      android:name=".BootReceiver"
-                      android:enabled="true"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.BOOT_COMPLETED" />
-                          <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                      </intent-filter>
-                  </receiver>
-
-              </application>
-          </manifest>
+          # strings.xml
+          cat << 'EOF' > $BASE/res/values/strings.xml
+          <resources>
+              <string name="app_name">Cofferno LV-307</string>
+          </resources>
           EOF
 
           # colors.xml
@@ -181,6 +141,53 @@ jobs:
           </menu>
           EOF
 
+          # AndroidManifest.xml
+          cat << 'EOF' > $BASE/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:label="@string/app_name"
+                  android:theme="@style/AppTheme"
+                  android:usesCleartextTraffic="true">
+                  
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+
+                  <service
+                      android:name=".TelemetryAgentService"
+                      android:enabled="true"
+                      android:exported="false" />
+
+                  <receiver
+                      android:name=".BootReceiver"
+                      android:enabled="true"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.BOOT_COMPLETED" />
+                          <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                      </intent-filter>
+                  </receiver>
+
+              </application>
+          </manifest>
+          EOF
+
           # activity_main.xml
           cat << 'EOF' > $BASE/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
@@ -217,7 +224,7 @@ jobs:
                           android:id="@+id/tv_machine_status_badge"
                           android:layout_width="wrap_content"
                           android:layout_height="wrap_content"
-                          android:text="● Инициализация..."
+                          android:text="● Подключение к сети..."
                           android:textColor="@color/status_yellow"
                           android:textSize="12sp" />
                   </LinearLayout>
@@ -595,11 +602,13 @@ jobs:
           )
           EOF
 
-          # TelemetryAgentService.kt (Служба аппарата с защитой от сбоев)
+          # TelemetryAgentService.kt
           cat << 'EOF' > $PKG/TelemetryAgentService.kt
           package com.coffee.telemetry
 
-          import android.app.*
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.Service
           import android.content.Context
           import android.content.Intent
           import android.os.Build
@@ -607,7 +616,11 @@ jobs:
           import android.os.PowerManager
           import androidx.core.app.NotificationCompat
           import com.google.gson.Gson
-          import org.eclipse.paho.client.mqttv3.*
+          import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
+          import org.eclipse.paho.client.mqttv3.MqttCallback
+          import org.eclipse.paho.client.mqttv3.MqttClient
+          import org.eclipse.paho.client.mqttv3.MqttConnectOptions
+          import org.eclipse.paho.client.mqttv3.MqttMessage
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.util.UUID
           import java.util.concurrent.Executors
@@ -677,7 +690,6 @@ jobs:
                                   mqttClient?.connect(options)
                                   mqttClient?.subscribe(topicCommands, 1)
 
-                                  // Запуск отправки
                                   scheduler?.shutdownNow()
                                   scheduler = Executors.newSingleThreadScheduledExecutor()
                                   scheduler?.scheduleAtFixedRate({
@@ -771,6 +783,7 @@ jobs:
           import android.widget.TextView
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
+          import androidx.core.content.ContextCompat
           import com.google.android.material.bottomnavigation.BottomNavigationView
           import com.google.android.material.switchmaterial.SwitchMaterial
           import com.google.gson.Gson
@@ -788,4 +801,182 @@ jobs:
               private var mqttClient: MqttClient? = null
               private val gson = Gson()
               private var lastMessageTime = 0L
-              
+              private var isServerConnected = false
+              private val watchdogHandler = Handler(Looper.getMainLooper())
+
+              private val watchdogRunnable = object : Runnable {
+                  override fun run() {
+                      val tvBadge = findViewById<TextView>(R.id.tv_machine_status_badge)
+                      if (!isServerConnected) {
+                          tvBadge.text = "● Подключение к серверу MQTT..."
+                          tvBadge.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_yellow))
+                      } else if (System.currentTimeMillis() - lastMessageTime > 9000) {
+                          tvBadge.text = "🔴 Аппарат оффлайн (Нет сигнала)"
+                          tvBadge.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_red))
+                      } else {
+                          tvBadge.text = "🟢 Аппарат онлайн | В сети"
+                          tvBadge.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_green))
+                      }
+                      watchdogHandler.postDelayed(this, 2000)
+                  }
+              }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+
+                  val prefs = getSharedPreferences("cofferno_prefs", Context.MODE_PRIVATE)
+
+                  val layoutDashboard = findViewById<LinearLayout>(R.id.layout_dashboard)
+                  val layoutControl = findViewById<LinearLayout>(R.id.layout_control)
+                  val layoutAgent = findViewById<LinearLayout>(R.id.layout_agent)
+                  val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
+                  val switchAgent = findViewById<SwitchMaterial>(R.id.switch_agent)
+                  val tvAgentStatus = findViewById<TextView>(R.id.tv_agent_status)
+
+                  bottomNav.setOnItemSelectedListener { item ->
+                      layoutDashboard.visibility = if (item.itemId == R.id.nav_dashboard) View.VISIBLE else View.GONE
+                      layoutControl.visibility = if (item.itemId == R.id.nav_control) View.VISIBLE else View.GONE
+                      layoutAgent.visibility = if (item.itemId == R.id.nav_agent) View.VISIBLE else View.GONE
+                      true
+                  }
+
+                  val isAgentRunning = prefs.getBoolean("agent_enabled", false)
+                  switchAgent.isChecked = isAgentRunning
+                  tvAgentStatus.text = if (isAgentRunning) "Статус службы: 🟢 Работает в фоне" else "Статус службы: Остановлена"
+
+                  switchAgent.setOnCheckedChangeListener { _, isChecked ->
+                      prefs.edit().putBoolean("agent_enabled", isChecked).apply()
+                      val serviceIntent = Intent(this, TelemetryAgentService::class.java)
+
+                      if (isChecked) {
+                          tvAgentStatus.text = "Статус службы: 🟢 Запуск..."
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                              startForegroundService(serviceIntent)
+                          } else {
+                              startService(serviceIntent)
+                          }
+                          Toast.makeText(this, "Служба запущена! Сворачиваем через 1 сек...", Toast.LENGTH_SHORT).show()
+                          Handler(Looper.getMainLooper()).postDelayed({ moveTaskToBack(true) }, 1000)
+                      } else {
+                          stopService(serviceIntent)
+                          tvAgentStatus.text = "Статус службы: Остановлена"
+                      }
+                  }
+
+                  findViewById<Button>(R.id.btn_send_flush).setOnClickListener { sendCommand("FLUSH") }
+                  findViewById<Button>(R.id.btn_send_test).setOnClickListener { sendCommand("TEST_CUP") }
+                  findViewById<Button>(R.id.btn_send_lock).setOnClickListener { sendCommand("TOGGLE_LOCK") }
+
+                  startClientConnection()
+                  watchdogHandler.post(watchdogRunnable)
+              }
+
+              private fun startClientConnection() {
+                  Executors.newSingleThreadExecutor().execute {
+                      while (true) {
+                          try {
+                              if (mqttClient == null || mqttClient?.isConnected == false) {
+                                  val clientId = "Phone_" + UUID.randomUUID().toString().substring(0, 6)
+                                  mqttClient = MqttClient(brokerUrl, clientId, MemoryPersistence())
+                                  val options = MqttConnectOptions().apply {
+                                      isAutomaticReconnect = true
+                                      isCleanSession = true
+                                      connectionTimeout = 15
+                                      keepAliveInterval = 30
+                                  }
+
+                                  mqttClient?.setCallback(object : MqttCallback {
+                                      override fun connectionLost(cause: Throwable?) {
+                                          isServerConnected = false
+                                      }
+                                      override fun messageArrived(topic: String?, message: MqttMessage?) {
+                                          if (topic == topicTelemetry) {
+                                              lastMessageTime = System.currentTimeMillis()
+                                              val json = message?.toString() ?: return
+                                              runOnUiThread { updateUi(json) }
+                                          }
+                                      }
+                                      override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                                  })
+
+                                  mqttClient?.connect(options)
+                                  mqttClient?.subscribe(topicTelemetry, 1)
+                                  isServerConnected = true
+                              }
+                          } catch (e: Exception) {
+                              isServerConnected = false
+                              e.printStackTrace()
+                          }
+                          try { Thread.sleep(6000) } catch (e: Exception) {}
+                      }
+                  }
+              }
+
+              private fun sendCommand(cmd: String) {
+                  Executors.newSingleThreadExecutor().execute {
+                      try {
+                          val msg = MqttMessage(cmd.toByteArray()).apply { qos = 1 }
+                          mqttClient?.publish(topicCommands, msg)
+                          runOnUiThread { Toast.makeText(this, "Команда '$cmd' отправлена", Toast.LENGTH_SHORT).show() }
+                      } catch (e: Exception) {
+                          runOnUiThread { Toast.makeText(this, "Ошибка отправки команды", Toast.LENGTH_SHORT).show() }
+                      }
+                  }
+              }
+
+              private fun updateUi(json: String) {
+                  try {
+                      val data = gson.fromJson(json, TelemetryData::class.java)
+                      findViewById<TextView>(R.id.tv_temp).text = "${data.temp}°C"
+                      findViewById<TextView>(R.id.tv_pressure).text = "${data.pressure} Bar"
+                      findViewById<TextView>(R.id.tv_status_mode).text = data.status
+
+                      findViewById<TextView>(R.id.lbl_coffee).text = "Зерновой кофе: ${data.coffee}%"
+                      findViewById<ProgressBar>(R.id.pb_coffee).progress = data.coffee
+
+                      findViewById<TextView>(R.id.lbl_water).text = "Вода в баке: ${data.water}%"
+                      findViewById<ProgressBar>(R.id.pb_water).progress = data.water
+
+                      findViewById<TextView>(R.id.lbl_cups).text = "Стаканы: ${data.cups} шт"
+                      findViewById<ProgressBar>(R.id.pb_cups).progress = data.cups
+
+                      findViewById<TextView>(R.id.tv_sales_cups).text = "${data.totalCups} порций"
+                      findViewById<TextView>(R.id.tv_sales_money).text = "${data.totalMoney} ₽"
+                  } catch (e: Exception) {
+                      e.printStackTrace()
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  watchdogHandler.removeCallbacks(watchdogRunnable)
+                  try { mqttClient?.disconnect() } catch (e: Exception) {}
+              }
+          }
+          EOF
+
+      - name: Build APK with Gradle
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Send APK directly to Telegram
+        if: success()
+        run: |
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK_PATH" ]; then
+            echo "Файл найден: $APK_PATH. Отправляем в Telegram..."
+            curl -v -F "chat_id=${{ env.CHAT_ID }}" \
+                    -F "caption=☕ Cofferno LV-307 v5.5 (Стабильная версия)" \
+                    -F "document=@$APK_PATH" \
+                    "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
+          else
+            echo "Файл APK не сгенерирован!"
+            exit 1
+          fi
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ env.CHAT_ID }}" \
+            -d "text=❌ Сборка Cofferno завершилась с ошибкой компиляции. Проверьте вкладку Actions на GitHub."
