@@ -75,7 +75,9 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions { jvmTarget = '17' }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
               lint {
                   abortOnError = false
                   checkReleaseBuilds = false
@@ -166,7 +168,6 @@ jobs:
           </resources>
           EOF
 
-          # Создаем надежные векторные иконки, не зависящие от версий Android
           cat > $B/res/drawable/ic_app_icon.xml << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="48dp" android:height="48dp" android:viewportWidth="24" android:viewportHeight="24">
@@ -729,8 +730,7 @@ jobs:
                       val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "800"))
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
                       while (true) {
-                          val line = reader.readLine()
-                          if (line == null) break
+                          val line = reader.readLine() ?: break
                           val id = findDeviceIdFromLogLine(line)
                           if (id != null) return id
                       }
@@ -826,8 +826,7 @@ jobs:
                       val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "500"))
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
                       while (true) {
-                          val line = reader.readLine()
-                          if (line == null) break
+                          val line = reader.readLine() ?: break
                           val interesting = isSaleMarker(line) ||
                               findDeviceIdFromLogLine(line) != null ||
                               line.contains("ylapi.levending") ||
@@ -1014,8 +1013,7 @@ jobs:
                           val process = Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time"))
                           val reader = BufferedReader(InputStreamReader(process.inputStream))
                           while (wakeLock != null && wakeLock!!.isHeld) {
-                              val line = reader.readLine()
-                              if (line == null) break
+                              val line = reader.readLine() ?: break
 
                               val dev = LeVendingProbe.findDeviceIdFromLogLine(line)
                               if (dev != null) {
@@ -1115,7 +1113,7 @@ jobs:
                                   if (sched != null) sched!!.shutdownNow()
                                   sched = Executors.newSingleThreadScheduledExecutor()
                                   sched!!.scheduleAtFixedRate(
-                                      { sendHeartbeat() },
+                                      Runnable { sendHeartbeat() },
                                       0L,
                                       3L,
                                       TimeUnit.SECONDS
@@ -1779,16 +1777,19 @@ jobs:
       - name: Send compile errors to Telegram
         if: failure()
         run: |
-          {
-            echo "Cofferno BUILD FAILED"
-            echo "---- e: lines ----"
-            grep -E "^e: |error:|FAILED|What went wrong" build.log | head -n 80 || true
-            echo "---- tail ----"
-            tail -n 40 build.log || true
-          } > errors.txt
           python3 - << 'PY'
           import urllib.parse, urllib.request, os
-          text = open("errors.txt","r",errors="ignore").read()[:3500]
+          
+          log = ""
+          if os.path.exists("build.log"):
+              with open("build.log", "r", errors="ignore") as f:
+                  lines = f.readlines()
+              err_lines = [l for l in lines if any(k in l for k in ["e: ", "ERROR:", "FAILURE:", "> Task", "* What went wrong", "* Try:"])]
+              if not err_lines:
+                  err_lines = lines[-60:]
+              log = "".join(err_lines[-50:])
+          
+          text = f"❌ Cofferno BUILD FAILED\n\n{log}"[:4000]
           token = os.environ.get("BOT_TOKEN", "")
           chat = os.environ.get("CHAT_ID", "")
           if token and chat:
