@@ -33,11 +33,18 @@ jobs:
 
           cat > settings.gradle << 'EOF'
           pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
           }
           dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           rootProject.name = "Cofferno"
           include ':app'
@@ -52,7 +59,7 @@ jobs:
 
           cat > gradle.properties << 'EOF'
           android.useAndroidX=true
-          android.nonTransitiveRClass=true
+          android.nonTransitiveRClass=false
           org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
           EOF
 
@@ -68,8 +75,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 75
-                  versionName "7.2.3"
+                  versionCode 76
+                  versionName "7.2.4"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -79,8 +86,8 @@ jobs:
                   jvmTarget = '17'
               }
               lint {
-                  abortOnError = false
-                  checkReleaseBuilds = false
+                  abortOnError false
+                  checkReleaseBuilds false
               }
           }
           dependencies {
@@ -775,7 +782,7 @@ jobs:
 
               fun fullScan(context: Context): String {
                   val sb = StringBuilder()
-                  sb.append("=== SCAN 7.2.3 ===\n")
+                  sb.append("=== SCAN 7.2.4 ===\n")
                   val dev = findDeviceId(context)
                   sb.append("Device ID: ")
                   sb.append(if (dev.isBlank()) "NOT FOUND" else dev)
@@ -1179,9 +1186,10 @@ jobs:
           import android.os.Build
 
           class BootReceiver : BroadcastReceiver() {
-              override fun onReceive(ctx: Context, intent: Intent) {
-                  val action = intent.action ?: return
+              override fun onReceive(context: Context?, intent: Intent?) {
+                  val action = intent?.action ?: return
                   if (action == Intent.ACTION_BOOT_COMPLETED || action == "android.intent.action.QUICKBOOT_POWERON") {
+                      val ctx = context ?: return
                       val prefs = ctx.getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
                       if (prefs.getBoolean("agent_active", false)) {
                           val i = Intent(ctx, AgentService::class.java)
@@ -1762,7 +1770,7 @@ jobs:
       - name: Build APK
         run: |
           set -o pipefail
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          gradle assembleDebug --no-daemon 2>&1 | tee build.log
           exit ${PIPESTATUS[0]}
 
       - name: Send APK
@@ -1771,7 +1779,7 @@ jobs:
           APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -n1)
           curl -F chat_id="${{ env.CHAT_ID }}" \
                -F document=@"$APK" \
-               -F caption="Cofferno 7.2.3 A+B DeviceID" \
+               -F caption="Cofferno 7.2.4 A+B DeviceID" \
                "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
 
       - name: Send compile errors to Telegram
@@ -1779,16 +1787,17 @@ jobs:
         run: |
           python3 - << 'PY'
           import urllib.parse, urllib.request, os
-          
+
           log = ""
           if os.path.exists("build.log"):
               with open("build.log", "r", errors="ignore") as f:
-                  lines = f.readlines()
-              err_lines = [l for l in lines if any(k in l for k in ["e: ", "ERROR:", "FAILURE:", "> Task", "* What went wrong", "* Try:"])]
-              if not err_lines:
-                  err_lines = lines[-60:]
-              log = "".join(err_lines[-50:])
-          
+                  all_lines = f.readlines()
+              # Ищем строки компилятора Kotlin / AAPT / Gradle
+              filtered = [l for l in all_lines if any(k in l for k in ["e: ", "w: ", "FAILURE:", "What went wrong", "> Task :app:", "error:"])]
+              if not filtered:
+                  filtered = all_lines[-80:]
+              log = "".join(filtered[-60:])
+
           text = f"❌ Cofferno BUILD FAILED\n\n{log}"[:4000]
           token = os.environ.get("BOT_TOKEN", "")
           chat = os.environ.get("CHAT_ID", "")
