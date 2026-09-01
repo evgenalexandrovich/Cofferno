@@ -5,10 +5,6 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-  CHAT_ID: ${{ secrets.CHAT_ID }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,6 +20,9 @@ jobs:
         with:
           gradle-version: '8.5'
 
+      # ============================================================
+      #  ГЕНЕРАЦИЯ ИСХОДНОГО КОДА
+      # ============================================================
       - name: Generate Project
         run: |
           set -e
@@ -31,20 +30,14 @@ jobs:
           P=$B/java/com/coffee/telemetry
           mkdir -p $P $B/res/layout $B/res/values $B/res/menu $B/res/drawable
 
+          # ---------- Gradle config ----------
           cat > settings.gradle << 'EOF'
           pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
           rootProject.name = "Cofferno"
           include ':app'
@@ -75,20 +68,15 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 77
-                  versionName "7.2.5"
+                  versionCode 78
+                  versionName "7.2.6"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-              lint {
-                  abortOnError false
-                  checkReleaseBuilds false
-              }
+              kotlinOptions { jvmTarget = '17' }
+              lint { abortOnError false; checkReleaseBuilds false }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -100,6 +88,7 @@ jobs:
           }
           EOF
 
+          # ---------- AndroidManifest ----------
           cat > $B/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -140,10 +129,9 @@ jobs:
           </manifest>
           EOF
 
+          # ---------- Resources ----------
           cat > $B/res/values/strings.xml << 'EOF'
-          <resources>
-              <string name="app_name">Cofferno LV-307</string>
-          </resources>
+          <resources><string name="app_name">Cofferno LV-307</string></resources>
           EOF
 
           cat > $B/res/values/colors.xml << 'EOF'
@@ -212,6 +200,7 @@ jobs:
           </menu>
           EOF
 
+          # ---------- Layout ----------
           cat > $B/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -219,437 +208,250 @@ jobs:
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:background="@color/bg">
-
               <LinearLayout
                   android:id="@+id/header"
-                  android:layout_width="0dp"
-                  android:layout_height="wrap_content"
-                  android:background="@color/card"
-                  android:gravity="center_vertical"
-                  android:orientation="horizontal"
-                  android:padding="12dp"
+                  android:layout_width="0dp" android:layout_height="wrap_content"
+                  android:background="@color/card" android:gravity="center_vertical"
+                  android:orientation="horizontal" android:padding="12dp"
                   app:layout_constraintEnd_toEndOf="parent"
                   app:layout_constraintStart_toStartOf="parent"
                   app:layout_constraintTop_toTopOf="parent">
-
-                  <LinearLayout
-                      android:layout_width="0dp"
-                      android:layout_height="wrap_content"
-                      android:layout_weight="1"
-                      android:orientation="vertical">
-                      <TextView
-                          android:id="@+id/tv_header_title"
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:text="Cofferno LV-307"
-                          android:textColor="@color/white"
-                          android:textSize="17sp"
-                          android:textStyle="bold" />
-                      <TextView
-                          android:id="@+id/tv_status"
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:text="Connecting..."
-                          android:textColor="@color/yellow"
-                          android:textSize="11sp" />
-                      <TextView
-                          android:id="@+id/tv_active_machine"
-                          android:layout_width="wrap_content"
-                          android:layout_height="wrap_content"
-                          android:text="All machines"
-                          android:textColor="@color/accent"
-                          android:textSize="11sp" />
+                  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                      android:layout_weight="1" android:orientation="vertical">
+                      <TextView android:id="@+id/tv_header_title"
+                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Cofferno LV-307" android:textColor="@color/white"
+                          android:textSize="17sp" android:textStyle="bold"/>
+                      <TextView android:id="@+id/tv_status"
+                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="Connecting..." android:textColor="@color/yellow" android:textSize="11sp"/>
+                      <TextView android:id="@+id/tv_active_machine"
+                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="All machines" android:textColor="@color/accent" android:textSize="11sp"/>
                   </LinearLayout>
-
-                  <Button
-                      android:id="@+id/btn_refresh_top"
-                      android:layout_width="wrap_content"
-                      android:layout_height="wrap_content"
-                      android:backgroundTint="@color/card"
-                      android:text="Refresh"
-                      android:textColor="@color/accent"
-                      android:textSize="12sp"
-                      app:strokeColor="@color/accent"
-                      app:strokeWidth="1dp" />
+                  <Button android:id="@+id/btn_refresh_top"
+                      android:layout_width="wrap_content" android:layout_height="wrap_content"
+                      android:backgroundTint="@color/card" android:text="Refresh"
+                      android:textColor="@color/accent" android:textSize="12sp"
+                      app:strokeColor="@color/accent" app:strokeWidth="1dp"/>
               </LinearLayout>
-
-              <ScrollView
-                  android:id="@+id/main_scroll"
-                  android:layout_width="0dp"
-                  android:layout_height="0dp"
-                  android:fillViewport="true"
+              <ScrollView android:id="@+id/main_scroll"
+                  android:layout_width="0dp" android:layout_height="0dp" android:fillViewport="true"
                   app:layout_constraintBottom_toTopOf="@id/bottom_nav"
                   app:layout_constraintEnd_toEndOf="parent"
                   app:layout_constraintStart_toStartOf="parent"
                   app:layout_constraintTop_toBottomOf="@id/header">
-
-                  <LinearLayout
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
-                      android:orientation="vertical"
-                      android:padding="12dp">
-
-                      <LinearLayout
-                          android:id="@+id/tab_sales"
-                          android:layout_width="match_parent"
-                          android:layout_height="wrap_content"
+                  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                      android:orientation="vertical" android:padding="12dp">
+                      <!-- TAB: SALES -->
+                      <LinearLayout android:id="@+id/tab_sales"
+                          android:layout_width="match_parent" android:layout_height="wrap_content"
                           android:orientation="vertical">
-
-                          <HorizontalScrollView
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
-                              android:layout_marginBottom="12dp"
+                          <HorizontalScrollView android:layout_width="match_parent"
+                              android:layout_height="wrap_content" android:layout_marginBottom="12dp"
                               android:scrollbars="none">
-                              <LinearLayout
-                                  android:id="@+id/ll_filter_chips"
-                                  android:layout_width="wrap_content"
-                                  android:layout_height="wrap_content"
-                                  android:orientation="horizontal" />
+                              <LinearLayout android:id="@+id/ll_filter_chips"
+                                  android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                  android:orientation="horizontal"/>
                           </HorizontalScrollView>
-
                           <com.google.android.material.card.MaterialCardView
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
                               android:layout_marginBottom="12dp"
-                              app:cardBackgroundColor="@color/card"
-                              app:cardCornerRadius="12dp">
-                              <LinearLayout
-                                  android:layout_width="match_parent"
-                                  android:layout_height="wrap_content"
-                                  android:orientation="vertical"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              <LinearLayout android:layout_width="match_parent"
+                                  android:layout_height="wrap_content" android:orientation="vertical"
                                   android:padding="16dp">
-                                  <TextView
-                                      android:id="@+id/tv_summary_title"
-                                      android:layout_width="wrap_content"
-                                      android:layout_height="wrap_content"
-                                      android:text="Revenue"
-                                      android:textColor="@color/white"
-                                      android:textSize="15sp"
-                                      android:textStyle="bold" />
-                                  <TextView
-                                      android:id="@+id/tv_total_revenue"
-                                      android:layout_width="wrap_content"
-                                      android:layout_height="wrap_content"
-                                      android:text="0"
-                                      android:textColor="@color/accent"
-                                      android:textSize="20sp"
-                                      android:textStyle="bold" />
-                                  <TextView
-                                      android:id="@+id/tv_total_profit"
-                                      android:layout_width="wrap_content"
-                                      android:layout_height="wrap_content"
-                                      android:text="0"
-                                      android:textColor="@color/green"
-                                      android:textSize="18sp"
-                                      android:textStyle="bold" />
-                                  <TextView
-                                      android:id="@+id/tv_total_cups"
-                                      android:layout_width="wrap_content"
-                                      android:layout_height="wrap_content"
-                                      android:text="Cups: 0"
-                                      android:textColor="@color/muted"
-                                      android:textSize="12sp" />
+                                  <TextView android:id="@+id/tv_summary_title"
+                                      android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:text="Revenue" android:textColor="@color/white"
+                                      android:textSize="15sp" android:textStyle="bold"/>
+                                  <TextView android:id="@+id/tv_total_revenue"
+                                      android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:text="0" android:textColor="@color/accent"
+                                      android:textSize="20sp" android:textStyle="bold"/>
+                                  <TextView android:id="@+id/tv_total_profit"
+                                      android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:text="0" android:textColor="@color/green"
+                                      android:textSize="18sp" android:textStyle="bold"/>
+                                  <TextView android:id="@+id/tv_total_cups"
+                                      android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                      android:text="Cups: 0" android:textColor="@color/muted" android:textSize="12sp"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
-
-                          <LinearLayout
-                              android:id="@+id/ll_drinks_container"
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
-                              android:orientation="vertical" />
+                          <LinearLayout android:id="@+id/ll_drinks_container"
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
+                              android:orientation="vertical"/>
                       </LinearLayout>
-
-                      <LinearLayout
-                          android:id="@+id/tab_manage"
-                          android:layout_width="match_parent"
-                          android:layout_height="wrap_content"
-                          android:orientation="vertical"
-                          android:visibility="gone">
-
+                      <!-- TAB: MANAGE -->
+                      <LinearLayout android:id="@+id/tab_manage"
+                          android:layout_width="match_parent" android:layout_height="wrap_content"
+                          android:orientation="vertical" android:visibility="gone">
                           <com.google.android.material.card.MaterialCardView
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
                               android:layout_marginBottom="12dp"
-                              app:cardBackgroundColor="@color/card"
-                              app:cardCornerRadius="12dp">
-                              <LinearLayout
-                                  android:layout_width="match_parent"
-                                  android:layout_height="wrap_content"
-                                  android:orientation="vertical"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              <LinearLayout android:layout_width="match_parent"
+                                  android:layout_height="wrap_content" android:orientation="vertical"
                                   android:padding="16dp">
-                                  <LinearLayout
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:orientation="horizontal">
-                                      <EditText
-                                          android:id="@+id/et_new_serial"
-                                          android:layout_width="0dp"
-                                          android:layout_height="wrap_content"
-                                          android:layout_weight="1"
-                                          android:hint="Device ID"
-                                          android:inputType="text"
-                                          android:textColor="@color/white"
-                                          android:textColorHint="@color/muted"
-                                          android:textSize="13sp" />
-                                      <Button
-                                          android:id="@+id/btn_add_machine"
-                                          android:layout_width="wrap_content"
-                                          android:layout_height="wrap_content"
-                                          android:layout_marginStart="8dp"
-                                          android:backgroundTint="@color/accent"
-                                          android:text="Add"
-                                          android:textColor="@color/dark" />
+                                  <LinearLayout android:layout_width="match_parent"
+                                      android:layout_height="wrap_content" android:orientation="horizontal">
+                                      <EditText android:id="@+id/et_new_serial"
+                                          android:layout_width="0dp" android:layout_height="wrap_content"
+                                          android:layout_weight="1" android:hint="Device ID"
+                                          android:inputType="text" android:textColor="@color/white"
+                                          android:textColorHint="@color/muted" android:textSize="13sp"/>
+                                      <Button android:id="@+id/btn_add_machine"
+                                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                          android:layout_marginStart="8dp" android:backgroundTint="@color/accent"
+                                          android:text="Add" android:textColor="@color/dark"/>
                                   </LinearLayout>
-                                  <LinearLayout
-                                      android:id="@+id/ll_machine_selector"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginTop="8dp"
-                                      android:orientation="vertical" />
-                                  <LinearLayout
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginTop="12dp"
+                                  <LinearLayout android:id="@+id/ll_machine_selector"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginTop="8dp" android:orientation="vertical"/>
+                                  <LinearLayout android:layout_width="match_parent"
+                                      android:layout_height="wrap_content" android:layout_marginTop="12dp"
                                       android:orientation="horizontal">
-                                      <EditText
-                                          android:id="@+id/et_custom_name"
-                                          android:layout_width="0dp"
-                                          android:layout_height="wrap_content"
-                                          android:layout_weight="1"
-                                          android:hint="Name"
+                                      <EditText android:id="@+id/et_custom_name"
+                                          android:layout_width="0dp" android:layout_height="wrap_content"
+                                          android:layout_weight="1" android:hint="Name"
                                           android:textColor="@color/white"
-                                          android:textColorHint="@color/muted"
-                                          android:textSize="13sp" />
-                                      <Button
-                                          android:id="@+id/btn_save_name"
-                                          android:layout_width="wrap_content"
-                                          android:layout_height="wrap_content"
-                                          android:layout_marginStart="8dp"
-                                          android:backgroundTint="@color/card"
-                                          android:text="Save name"
-                                          android:textColor="@color/white"
-                                          app:strokeColor="@color/accent"
-                                          app:strokeWidth="1dp" />
+                                          android:textColorHint="@color/muted" android:textSize="13sp"/>
+                                      <Button android:id="@+id/btn_save_name"
+                                          android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                          android:layout_marginStart="8dp" android:backgroundTint="@color/card"
+                                          android:text="Save name" android:textColor="@color/white"
+                                          app:strokeColor="@color/accent" app:strokeWidth="1dp"/>
                                   </LinearLayout>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
-
                           <com.google.android.material.card.MaterialCardView
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
                               android:layout_marginBottom="12dp"
-                              app:cardBackgroundColor="@color/card"
-                              app:cardCornerRadius="12dp">
-                              <LinearLayout
-                                  android:layout_width="match_parent"
-                                  android:layout_height="wrap_content"
-                                  android:orientation="vertical"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              <LinearLayout android:layout_width="match_parent"
+                                  android:layout_height="wrap_content" android:orientation="vertical"
                                   android:padding="16dp">
-                                  <LinearLayout
-                                      android:id="@+id/ll_costs_container"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:orientation="vertical" />
-                                  <Button
-                                      android:id="@+id/btn_save_all_costs"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginTop="10dp"
-                                      android:backgroundTint="@color/accent"
-                                      android:text="Save costs"
-                                      android:textColor="@color/dark" />
+                                  <LinearLayout android:id="@+id/ll_costs_container"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:orientation="vertical"/>
+                                  <Button android:id="@+id/btn_save_all_costs"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginTop="10dp" android:backgroundTint="@color/accent"
+                                      android:text="Save costs" android:textColor="@color/dark"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
-
                           <com.google.android.material.card.MaterialCardView
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
-                              app:cardBackgroundColor="@color/card"
-                              app:cardCornerRadius="12dp">
-                              <LinearLayout
-                                  android:layout_width="match_parent"
-                                  android:layout_height="wrap_content"
-                                  android:orientation="vertical"
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              <LinearLayout android:layout_width="match_parent"
+                                  android:layout_height="wrap_content" android:orientation="vertical"
                                   android:padding="16dp">
-                                  <Button
-                                      android:id="@+id/btn_reset_counters"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginBottom="8dp"
-                                      android:backgroundTint="@color/yellow"
-                                      android:text="Reset counters"
-                                      android:textColor="@color/dark" />
-                                  <Button
-                                      android:id="@+id/btn_remote_reboot"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginBottom="8dp"
-                                      android:backgroundTint="@color/orange"
-                                      android:text="Reboot"
-                                      android:textColor="@color/white" />
-                                  <Button
-                                      android:id="@+id/btn_remote_flush"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginBottom="8dp"
-                                      android:backgroundTint="@color/blue"
-                                      android:text="Flush"
-                                      android:textColor="@color/white" />
-                                  <Button
-                                      android:id="@+id/btn_remote_lock"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
+                                  <Button android:id="@+id/btn_reset_counters"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginBottom="8dp" android:backgroundTint="@color/yellow"
+                                      android:text="Reset counters" android:textColor="@color/dark"/>
+                                  <Button android:id="@+id/btn_remote_reboot"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginBottom="8dp" android:backgroundTint="@color/orange"
+                                      android:text="Reboot" android:textColor="@color/white"/>
+                                  <Button android:id="@+id/btn_remote_flush"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginBottom="8dp" android:backgroundTint="@color/blue"
+                                      android:text="Flush" android:textColor="@color/white"/>
+                                  <Button android:id="@+id/btn_remote_lock"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:backgroundTint="@color/red"
-                                      android:text="Lock"
-                                      android:textColor="@color/white" />
+                                      android:text="Lock" android:textColor="@color/white"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
-
-                      <LinearLayout
-                          android:id="@+id/tab_agent"
-                          android:layout_width="match_parent"
-                          android:layout_height="wrap_content"
-                          android:orientation="vertical"
-                          android:visibility="gone">
-
+                      <!-- TAB: AGENT -->
+                      <LinearLayout android:id="@+id/tab_agent"
+                          android:layout_width="match_parent" android:layout_height="wrap_content"
+                          android:orientation="vertical" android:visibility="gone">
                           <com.google.android.material.card.MaterialCardView
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
                               android:layout_marginBottom="12dp"
-                              app:cardBackgroundColor="@color/card"
-                              app:cardCornerRadius="12dp">
-                              <LinearLayout
-                                  android:layout_width="match_parent"
-                                  android:layout_height="wrap_content"
-                                  android:orientation="vertical"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              <LinearLayout android:layout_width="match_parent"
+                                  android:layout_height="wrap_content" android:orientation="vertical"
                                   android:padding="16dp">
-                                  <TextView
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:text="Device ID"
-                                      android:textColor="@color/muted"
-                                      android:textSize="12sp" />
-                                  <TextView
-                                      android:id="@+id/tv_detected_device_id"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginBottom="8dp"
-                                      android:text="not found"
-                                      android:textColor="@color/accent"
-                                      android:textSize="18sp"
-                                      android:textStyle="bold" />
-                                  <Button
-                                      android:id="@+id/btn_detect_device_id"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginBottom="8dp"
-                                      android:backgroundTint="@color/blue"
-                                      android:text="Detect Device ID"
-                                      android:textColor="@color/white" />
-                                  <Button
-                                      android:id="@+id/btn_use_device_id"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginBottom="12dp"
-                                      android:backgroundTint="@color/green"
-                                      android:text="Use Device ID as S/N"
-                                      android:textColor="@color/white" />
-                                  <EditText
-                                      android:id="@+id/et_agent_serial"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:hint="S/N"
-                                      android:textColor="@color/white"
-                                      android:textColorHint="@color/muted"
-                                      android:textSize="13sp" />
-                                  <Button
-                                      android:id="@+id/btn_save_agent_serial"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginTop="8dp"
-                                      android:backgroundTint="@color/accent"
-                                      android:text="Save S/N"
-                                      android:textColor="@color/dark" />
+                                  <TextView android:layout_width="match_parent"
+                                      android:layout_height="wrap_content" android:text="Device ID"
+                                      android:textColor="@color/muted" android:textSize="12sp"/>
+                                  <TextView android:id="@+id/tv_detected_device_id"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginBottom="8dp" android:text="not found"
+                                      android:textColor="@color/accent" android:textSize="18sp"
+                                      android:textStyle="bold"/>
+                                  <Button android:id="@+id/btn_detect_device_id"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginBottom="8dp" android:backgroundTint="@color/blue"
+                                      android:text="Detect Device ID" android:textColor="@color/white"/>
+                                  <Button android:id="@+id/btn_use_device_id"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginBottom="12dp" android:backgroundTint="@color/green"
+                                      android:text="Use Device ID as S/N" android:textColor="@color/white"/>
+                                  <EditText android:id="@+id/et_agent_serial"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:hint="S/N" android:textColor="@color/white"
+                                      android:textColorHint="@color/muted" android:textSize="13sp"/>
+                                  <Button android:id="@+id/btn_save_agent_serial"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginTop="8dp" android:backgroundTint="@color/accent"
+                                      android:text="Save S/N" android:textColor="@color/dark"/>
                                   <com.google.android.material.switchmaterial.SwitchMaterial
                                       android:id="@+id/switch_agent"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:layout_marginTop="16dp"
-                                      android:text="Background service A+B"
-                                      android:textColor="@color/white" />
-                                  <TextView
-                                      android:id="@+id/tv_agent_status"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginTop="4dp"
-                                      android:text="Stopped"
-                                      android:textColor="@color/yellow"
-                                      android:textSize="12sp" />
-                                  <TextView
-                                      android:id="@+id/tv_last_sale"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
-                                      android:layout_marginTop="6dp"
-                                      android:text="Last sale: -"
-                                      android:textColor="@color/muted"
-                                      android:textSize="12sp" />
+                                      android:text="Background service A+B" android:textColor="@color/white"/>
+                                  <TextView android:id="@+id/tv_agent_status"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginTop="4dp" android:text="Stopped"
+                                      android:textColor="@color/yellow" android:textSize="12sp"/>
+                                  <TextView android:id="@+id/tv_last_sale"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
+                                      android:layout_marginTop="6dp" android:text="Last sale: -"
+                                      android:textColor="@color/muted" android:textSize="12sp"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
-
                           <com.google.android.material.card.MaterialCardView
-                              android:layout_width="match_parent"
-                              android:layout_height="wrap_content"
+                              android:layout_width="match_parent" android:layout_height="wrap_content"
                               android:layout_marginBottom="20dp"
-                              app:cardBackgroundColor="@color/card"
-                              app:cardCornerRadius="12dp">
-                              <LinearLayout
-                                  android:layout_width="match_parent"
-                                  android:layout_height="wrap_content"
-                                  android:orientation="vertical"
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              <LinearLayout android:layout_width="match_parent"
+                                  android:layout_height="wrap_content" android:orientation="vertical"
                                   android:padding="16dp">
-                                  <Button
-                                      android:id="@+id/btn_scan_coffeenet"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="wrap_content"
+                                  <Button android:id="@+id/btn_scan_coffeenet"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:backgroundTint="@color/blue"
-                                      android:text="Scan logs"
-                                      android:textColor="@color/white" />
-                                  <TextView
-                                      android:id="@+id/tv_coffeenet_logs"
-                                      android:layout_width="match_parent"
-                                      android:layout_height="480dp"
-                                      android:layout_marginTop="12dp"
-                                      android:background="#000000"
-                                      android:fadeScrollbars="false"
-                                      android:gravity="top|start"
-                                      android:overScrollMode="always"
-                                      android:padding="12dp"
-                                      android:scrollbars="vertical"
-                                      android:text="Scan..."
-                                      android:textColor="#00FF66"
-                                      android:textIsSelectable="true"
-                                      android:textSize="12sp" />
+                                      android:text="Scan logs" android:textColor="@color/white"/>
+                                  <TextView android:id="@+id/tv_coffeenet_logs"
+                                      android:layout_width="match_parent" android:layout_height="480dp"
+                                      android:layout_marginTop="12dp" android:background="#000000"
+                                      android:fadeScrollbars="false" android:gravity="top|start"
+                                      android:overScrollMode="always" android:padding="12dp"
+                                      android:scrollbars="vertical" android:text="Scan..."
+                                      android:textColor="#00FF66" android:textIsSelectable="true"
+                                      android:textSize="12sp"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
                   </LinearLayout>
               </ScrollView>
-
               <com.google.android.material.bottomnavigation.BottomNavigationView
                   android:id="@+id/bottom_nav"
-                  android:layout_width="0dp"
-                  android:layout_height="wrap_content"
+                  android:layout_width="0dp" android:layout_height="wrap_content"
                   android:background="@color/card"
-                  app:itemIconTint="@color/accent"
-                  app:itemTextColor="@color/white"
+                  app:itemIconTint="@color/accent" app:itemTextColor="@color/white"
                   app:layout_constraintBottom_toBottomOf="parent"
                   app:layout_constraintEnd_toEndOf="parent"
                   app:layout_constraintStart_toStartOf="parent"
-                  app:menu="@menu/bottom_nav" />
+                  app:menu="@menu/bottom_nav"/>
           </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
+          # ---------- Kotlin: Models ----------
           cat > $P/Models.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -682,6 +484,7 @@ jobs:
           )
           EOF
 
+          # ---------- Kotlin: LeVendingProbe ----------
           cat > $P/LeVendingProbe.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -712,9 +515,7 @@ jobs:
               fun findDeviceIdFromLogLine(line: String): String? {
                   for (p in devicePatterns) {
                       val m = p.matcher(line)
-                      if (m.find()) {
-                          return m.group(1)
-                      }
+                      if (m.find()) return m.group(1)
                   }
                   return null
               }
@@ -723,7 +524,6 @@ jobs:
                   val prefs = context.getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
                   val saved = prefs.getString("levending_device_id", "") ?: ""
                   if (saved.isNotBlank()) return saved
-
                   val fromLog = scrapeDeviceIdFromLogcat()
                   if (fromLog != null) {
                       prefs.edit().putString("levending_device_id", fromLog).apply()
@@ -741,9 +541,7 @@ jobs:
                           val id = findDeviceIdFromLogLine(line)
                           if (id != null) return id
                       }
-                  } catch (e: Exception) {
-                      // ignore
-                  }
+                  } catch (_: Exception) {}
                   return null
               }
 
@@ -752,16 +550,14 @@ jobs:
                   return line.contains("START") || line.contains("Displayed") || line.contains("cmp=")
               }
 
-              fun isDropCupMarker(line: String): Boolean {
-                  return line.contains("AloneDropCupActivity") && line.contains("Displayed")
-              }
+              fun isDropCupMarker(line: String): Boolean =
+                  line.contains("AloneDropCupActivity") && line.contains("Displayed")
 
-              fun isSaleMarker(line: String): Boolean {
-                  return line.contains("MakeDrinkVideoActivity") ||
-                      line.contains("AloneDropCupActivity") ||
-                      line.contains("MakeDrinkPresenter") ||
-                      line.contains("PayActivity")
-              }
+              fun isSaleMarker(line: String): Boolean =
+                  line.contains("MakeDrinkVideoActivity") ||
+                  line.contains("AloneDropCupActivity") ||
+                  line.contains("MakeDrinkPresenter") ||
+                  line.contains("PayActivity")
 
               fun extractDrinkName(line: String): String? {
                   for (d in drinkWords) {
@@ -773,90 +569,63 @@ jobs:
               fun extractPrice(line: String): Int? {
                   val m = pricePattern.matcher(line)
                   if (m.find()) {
-                      val g = m.group(1) ?: return null
-                      val v = g.toIntOrNull() ?: return null
+                      val v = m.group(1)?.toIntOrNull() ?: return null
                       if (v in 10..2000) return v
                   }
                   return null
               }
 
               fun fullScan(context: Context): String {
-                  val sb = StringBuilder()
-                  sb.append("=== SCAN 7.2.5 ===\n")
+                  val sb = StringBuilder("=== SCAN 7.2.6 ===\n")
                   val dev = findDeviceId(context)
-                  sb.append("Device ID: ")
-                  sb.append(if (dev.isBlank()) "NOT FOUND" else dev)
-                  sb.append("\n\n")
-
+                  sb.append("Device ID: ").append(if (dev.isBlank()) "NOT FOUND" else dev).append("\n\n")
                   try {
                       val pkgs = context.packageManager.getInstalledPackages(0)
                       sb.append("--- APPS ---\n")
                       for (p in pkgs) {
                           val n = p.packageName.lowercase()
-                          if (n.contains("le.") || n.contains("vending") || n.contains("coffee") || n.contains("ylpush")) {
+                          if (n.contains("le.") || n.contains("vending") || n.contains("coffee") || n.contains("ylpush"))
                               sb.append(" * ").append(p.packageName).append("\n")
-                          }
                       }
-                  } catch (e: Exception) {
-                      sb.append(e.message).append("\n")
-                  }
-
+                  } catch (e: Exception) { sb.append(e.message).append("\n") }
                   sb.append("\n--- FOLDERS ---\n")
                   val root = Environment.getExternalStorageDirectory()
-                  val rels = arrayOf(
-                      "Download",
+                  for (rel in arrayOf("Download",
                       "Android/data/com.le.vmcoffeestandard",
                       "Android/data/com.le.vmcoffeestandard/files",
                       "Android/data/com.levending.ylpush",
-                      "Android/data/com.levending.ylpush/files"
-                  )
-                  for (rel in rels) {
+                      "Android/data/com.levending.ylpush/files")) {
                       val f = File(root, rel)
                       if (f.exists()) {
                           sb.append("DIR ").append(f.absolutePath).append("\n")
-                          val children = f.listFiles()
-                          if (children != null) {
-                              var i = 0
-                              while (i < children.size && i < 30) {
-                                  val c = children[i]
-                                  sb.append("  - ").append(c.name).append(" (").append(c.length()).append(")\n")
-                                  i++
-                              }
+                          f.listFiles()?.take(30)?.forEach { c ->
+                              sb.append("  - ").append(c.name).append(" (").append(c.length()).append(")\n")
                           }
                       }
                   }
-
                   sb.append("\n--- LOGCAT ---\n")
-                  var saleHits = 0
-                  var shown = 0
+                  var saleHits = 0; var shown = 0
                   try {
                       val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "500"))
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
                       while (true) {
                           val line = reader.readLine() ?: break
-                          val interesting = isSaleMarker(line) ||
-                              findDeviceIdFromLogLine(line) != null ||
-                              line.contains("ylapi.levending") ||
-                              line.contains("vmcoffee", ignoreCase = true) ||
-                              extractDrinkName(line) != null ||
-                              extractPrice(line) != null
-                          if (interesting) {
+                          if (isSaleMarker(line) || findDeviceIdFromLogLine(line) != null ||
+                              line.contains("ylapi.levending") || line.contains("vmcoffee", ignoreCase = true) ||
+                              extractDrinkName(line) != null || extractPrice(line) != null) {
                               if (isSaleMarker(line)) saleHits++
-                              val cut = if (line.length > 200) line.substring(0, 200) else line
-                              sb.append(cut).append("\n")
-                              shown++
-                              if (shown >= 90) break
+                              sb.append(if (line.length > 200) line.substring(0, 200) else line).append("\n")
+                              if (++shown >= 90) break
                           }
                       }
-                  } catch (e: Exception) {
-                      sb.append("logcat: ").append(e.message).append("\n")
-                  }
+                  } catch (e: Exception) { sb.append("logcat: ").append(e.message).append("\n") }
                   sb.append("\nSale markers: ").append(saleHits).append("\n=== END ===\n")
                   return sb.toString()
               }
           }
           EOF
 
+          # ---------- Kotlin: AgentService ----------
           cat > $P/AgentService.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -873,11 +642,7 @@ jobs:
           import androidx.core.app.NotificationCompat
           import com.google.gson.Gson
           import com.google.gson.reflect.TypeToken
-          import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
-          import org.eclipse.paho.client.mqttv3.MqttCallback
-          import org.eclipse.paho.client.mqttv3.MqttClient
-          import org.eclipse.paho.client.mqttv3.MqttConnectOptions
-          import org.eclipse.paho.client.mqttv3.MqttMessage
+          import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.io.BufferedReader
           import java.io.InputStreamReader
@@ -894,52 +659,38 @@ jobs:
               private var sched: ScheduledExecutorService? = null
               private val exec = Executors.newSingleThreadExecutor()
               private val logExec = Executors.newSingleThreadExecutor()
-
               private var lastSaleTs = 0L
-              private var pendingName: String = ""
-              private var pendingPrice: Int = 0
+              private var pendingName = ""
+              private var pendingPrice = 0
               private var pendingMetaTs = 0L
 
               override fun onBind(intent: Intent?): IBinder? = null
 
               override fun onCreate() {
                   super.onCreate()
-                  val channelId = "cofferno_agent_ch"
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val nm = getSystemService(NotificationManager::class.java)
-                      nm?.createNotificationChannel(
-                          NotificationChannel(channelId, "Agent", NotificationManager.IMPORTANCE_LOW)
-                      )
-                  }
-                  val notification = NotificationCompat.Builder(this, channelId)
-                      .setContentTitle("Cofferno LV-307")
-                      .setContentText("Sales service A+B")
-                      .setSmallIcon(R.drawable.ic_app_icon)
-                      .setOngoing(true)
-                      .build()
+                  val ch = "cofferno_agent_ch"
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                      getSystemService(NotificationManager::class.java)
+                          ?.createNotificationChannel(NotificationChannel(ch, "Agent", NotificationManager.IMPORTANCE_LOW))
+                  val n = NotificationCompat.Builder(this, ch)
+                      .setContentTitle("Cofferno LV-307").setContentText("Sales service A+B")
+                      .setSmallIcon(R.drawable.ic_app_icon).setOngoing(true).build()
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                      startForeground(101, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                  else startForeground(101, n)
 
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                      startForeground(101, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-                  } else {
-                      startForeground(101, notification)
-                  }
-
-                  val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-                  wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:Wake")
-                  wakeLock?.acquire(24L * 60L * 60L * 1000L)
+                  wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
+                      .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:Wake")
+                  wakeLock?.acquire(86400000L)
 
                   try {
                       val id = LeVendingProbe.findDeviceId(this)
                       if (id.isNotBlank()) {
                           val p = prefs()
-                          val custom = p.getString("custom_serial", "") ?: ""
-                          if (custom.isBlank()) {
+                          if (p.getString("custom_serial", "").isNullOrBlank())
                               p.edit().putString("custom_serial", id).apply()
-                          }
                       }
-                  } catch (e: Exception) {
-                      e.printStackTrace()
-                  }
+                  } catch (_: Exception) {}
 
                   startAgentLoop()
                   startSaleInterceptor()
@@ -948,68 +699,46 @@ jobs:
               private fun prefs() = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
 
               private fun getMachineSerial(): String {
-                  val custom = prefs().getString("custom_serial", "") ?: ""
-                  if (custom.isNotBlank()) return custom.trim().lowercase()
-                  val dev = prefs().getString("levending_device_id", "") ?: ""
-                  if (dev.isNotBlank()) return dev.trim().lowercase()
-                  val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-                  return (androidId ?: "lv307_unit").trim().lowercase()
+                  val c = prefs().getString("custom_serial", "") ?: ""
+                  if (c.isNotBlank()) return c.trim().lowercase()
+                  val d = prefs().getString("levending_device_id", "") ?: ""
+                  if (d.isNotBlank()) return d.trim().lowercase()
+                  return (Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "lv307_unit").trim().lowercase()
               }
 
               private fun resolveDeviceId(): String {
                   val a = prefs().getString("levending_device_id", "") ?: ""
-                  if (a.isNotBlank()) return a
-                  return prefs().getString("custom_serial", "") ?: ""
+                  return if (a.isNotBlank()) a else prefs().getString("custom_serial", "") ?: ""
               }
 
               private fun loadDrinks(): MutableList<DrinkItem> {
                   val json = prefs().getString("drinks_json", "")
-                  if (json != null && json.isNotEmpty()) {
-                      try {
-                          val type = object : TypeToken<MutableList<DrinkItem>>() {}.type
-                          val list: MutableList<DrinkItem>? = gson.fromJson(json, type)
-                          if (list != null) return list
-                      } catch (e: Exception) {
-                          // ignore
-                      }
-                  }
-                  val list = ArrayList<DrinkItem>()
-                  list.add(DrinkItem(0, "Espresso", 0, 120, 35))
-                  list.add(DrinkItem(1, "Cappuccino", 0, 180, 55))
-                  list.add(DrinkItem(2, "Latte", 0, 200, 60))
-                  list.add(DrinkItem(3, "Americano", 0, 130, 30))
-                  list.add(DrinkItem(4, "Flat White", 0, 190, 55))
-                  list.add(DrinkItem(5, "Chocolate", 0, 160, 45))
-                  list.add(DrinkItem(6, "Drink (LeVending)", 0, 150, 40))
-                  return list
+                  if (!json.isNullOrEmpty()) try {
+                      val t = object : TypeToken<MutableList<DrinkItem>>() {}.type
+                      val l: MutableList<DrinkItem>? = gson.fromJson(json, t)
+                      if (l != null) return l
+                  } catch (_: Exception) {}
+                  return mutableListOf(
+                      DrinkItem(0, "Espresso", 0, 120, 35), DrinkItem(1, "Cappuccino", 0, 180, 55),
+                      DrinkItem(2, "Latte", 0, 200, 60), DrinkItem(3, "Americano", 0, 130, 30),
+                      DrinkItem(4, "Flat White", 0, 190, 55), DrinkItem(5, "Chocolate", 0, 160, 45),
+                      DrinkItem(6, "Drink (LeVending)", 0, 150, 40)
+                  )
               }
 
               private fun saveDrinks(list: List<DrinkItem>) {
                   prefs().edit().putString("drinks_json", gson.toJson(list)).apply()
               }
 
-              private fun registerDrinkSale(drinkName: String, price: Int) {
+              private fun registerDrinkSale(name: String, price: Int) {
                   val drinks = loadDrinks()
-                  val finalPrice = if (price > 0) price else 150
-                  var found: DrinkItem? = null
-                  for (d in drinks) {
-                      if (d.name.equals(drinkName, ignoreCase = true)) {
-                          found = d
-                          break
-                      }
-                  }
-                  if (found != null) {
-                      found.count = found.count + 1
-                      if (price > 0) found.price = price
-                  } else {
-                      drinks.add(DrinkItem(drinks.size, drinkName, 1, finalPrice, 40))
-                  }
+                  val fp = if (price > 0) price else 150
+                  val found = drinks.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                  if (found != null) { found.count++; if (price > 0) found.price = price }
+                  else drinks.add(DrinkItem(drinks.size, name, 1, fp, 40))
                   saveDrinks(drinks)
-                  prefs().edit()
-                      .putString("last_sale_name", drinkName)
-                      .putInt("last_sale_price", finalPrice)
-                      .putLong("last_sale_at", System.currentTimeMillis())
-                      .apply()
+                  prefs().edit().putString("last_sale_name", name).putInt("last_sale_price", fp)
+                      .putLong("last_sale_at", System.currentTimeMillis()).apply()
                   sendHeartbeat()
               }
 
@@ -1017,166 +746,89 @@ jobs:
                   logExec.execute {
                       try {
                           Runtime.getRuntime().exec(arrayOf("logcat", "-c"))
-                          val process = Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time"))
-                          val reader = BufferedReader(InputStreamReader(process.inputStream))
-                          while (wakeLock != null && wakeLock!!.isHeld) {
-                              val line = reader.readLine() ?: break
-
-                              val dev = LeVendingProbe.findDeviceIdFromLogLine(line)
-                              if (dev != null) {
+                          val r = BufferedReader(InputStreamReader(
+                              Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time")).inputStream))
+                          while (wakeLock?.isHeld == true) {
+                              val line = r.readLine() ?: break
+                              LeVendingProbe.findDeviceIdFromLogLine(line)?.let { dev ->
                                   val p = prefs()
-                                  val old = p.getString("levending_device_id", "") ?: ""
-                                  if (old != dev) {
+                                  if (p.getString("levending_device_id", "") != dev) {
                                       val ed = p.edit().putString("levending_device_id", dev)
-                                      val custom = p.getString("custom_serial", "") ?: ""
-                                      if (custom.isBlank()) {
-                                          ed.putString("custom_serial", dev)
-                                      }
+                                      if (p.getString("custom_serial", "").isNullOrBlank()) ed.putString("custom_serial", dev)
                                       ed.apply()
                                   }
                               }
-
-                              val n = LeVendingProbe.extractDrinkName(line)
-                              if (n != null) {
-                                  pendingName = n
-                                  pendingMetaTs = System.currentTimeMillis()
-                              }
-                              val pr = LeVendingProbe.extractPrice(line)
-                              if (pr != null) {
-                                  pendingPrice = pr
-                                  pendingMetaTs = System.currentTimeMillis()
-                              }
-
-                              val hit = LeVendingProbe.isPrimarySaleMarker(line) ||
-                                  LeVendingProbe.isDropCupMarker(line)
-                              if (hit) {
+                              LeVendingProbe.extractDrinkName(line)?.let { pendingName = it; pendingMetaTs = System.currentTimeMillis() }
+                              LeVendingProbe.extractPrice(line)?.let { pendingPrice = it; pendingMetaTs = System.currentTimeMillis() }
+                              if (LeVendingProbe.isPrimarySaleMarker(line) || LeVendingProbe.isDropCupMarker(line)) {
                                   val now = System.currentTimeMillis()
                                   if (now - lastSaleTs > 45000L) {
                                       lastSaleTs = now
                                       val fresh = (now - pendingMetaTs) < 120000L
-                                      val drink = if (fresh && pendingName.isNotBlank()) pendingName else "Drink (LeVending)"
-                                      val price = if (fresh && pendingPrice > 0) pendingPrice else 150
-                                      registerDrinkSale(drink, price)
+                                      registerDrinkSale(
+                                          if (fresh && pendingName.isNotBlank()) pendingName else "Drink (LeVending)",
+                                          if (fresh && pendingPrice > 0) pendingPrice else 150
+                                      )
                                   }
                               }
                           }
-                      } catch (e: Exception) {
-                          e.printStackTrace()
-                      }
-                  }
-              }
-
-              private fun resetCounters() {
-                  val list = loadDrinks()
-                  for (d in list) {
-                      d.count = 0
-                  }
-                  saveDrinks(list)
-              }
-
-              private fun rebootDevice() {
-                  try {
-                      Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
-                  } catch (e: Exception) {
-                      try {
-                          val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-                          pm.reboot(null)
-                      } catch (e2: Exception) {
-                          e2.printStackTrace()
-                      }
+                      } catch (_: Exception) {}
                   }
               }
 
               private fun startAgentLoop() {
                   exec.execute {
-                      while (wakeLock != null && wakeLock!!.isHeld) {
+                      while (wakeLock?.isHeld == true) {
                           try {
-                              val connected = client != null && client!!.isConnected
-                              if (!connected) {
+                              if (client?.isConnected != true) {
                                   val sn = getMachineSerial()
-                                  val id = "Host_" + sn + "_" + (System.currentTimeMillis() % 1000L)
-                                  client = MqttClient(broker, id, MemoryPersistence())
-                                  val options = MqttConnectOptions()
-                                  options.isAutomaticReconnect = true
-                                  options.connectionTimeout = 15
-                                  options.keepAliveInterval = 30
-                                  client!!.connect(options)
+                                  client = MqttClient(broker, "Host_${sn}_${System.currentTimeMillis() % 1000}", MemoryPersistence())
+                                  val opt = MqttConnectOptions().apply { isAutomaticReconnect = true; connectionTimeout = 15; keepAliveInterval = 30 }
+                                  client!!.connect(opt)
                                   client!!.subscribe("cofferno/$sn/cmd", 1)
                                   client!!.setCallback(object : MqttCallback {
-                                      override fun connectionLost(cause: Throwable?) {}
-                                      override fun messageArrived(topic: String?, message: MqttMessage?) {
-                                          val cmd = message?.toString()?.trim() ?: return
-                                          if (cmd == "RESET_COUNTERS") {
-                                              resetCounters()
-                                              sendHeartbeat()
-                                          } else if (cmd == "REQUEST_UPDATE") {
-                                              sendHeartbeat()
-                                          } else if (cmd == "REBOOT_MACHINE") {
-                                              rebootDevice()
+                                      override fun connectionLost(c: Throwable?) {}
+                                      override fun messageArrived(t: String?, m: MqttMessage?) {
+                                          when (m?.toString()?.trim()) {
+                                              "RESET_COUNTERS" -> { loadDrinks().forEach { it.count = 0 }; saveDrinks(loadDrinks()); sendHeartbeat() }
+                                              "REQUEST_UPDATE" -> sendHeartbeat()
+                                              "REBOOT_MACHINE" -> try { Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot")) } catch (_: Exception) {}
                                           }
                                       }
-                                      override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                                      override fun deliveryComplete(t: IMqttDeliveryToken?) {}
                                   })
-                                  if (sched != null) sched!!.shutdownNow()
+                                  sched?.shutdownNow()
                                   sched = Executors.newSingleThreadScheduledExecutor()
-                                  sched!!.scheduleAtFixedRate(
-                                      Runnable { sendHeartbeat() },
-                                      0L,
-                                      3L,
-                                      TimeUnit.SECONDS
-                                  )
+                                  sched!!.scheduleAtFixedRate(Runnable { sendHeartbeat() }, 0, 3, TimeUnit.SECONDS)
                               }
-                          } catch (e: Exception) {
-                              e.printStackTrace()
-                          }
-                          try {
-                              Thread.sleep(5000L)
-                          } catch (e: Exception) {
-                              // ignore
-                          }
+                          } catch (_: Exception) {}
+                          Thread.sleep(5000)
                       }
                   }
               }
 
               private fun sendHeartbeat() {
                   try {
-                      if (client == null || !client!!.isConnected) return
+                      if (client?.isConnected != true) return
                       val sn = getMachineSerial()
-                      val drinks = loadDrinks()
                       val p = prefs()
-                      val packet = TelemetryPacket(
-                          sn,
-                          93.4,
-                          9.2,
-                          "LeVending OK",
-                          drinks,
-                          resolveDeviceId(),
-                          p.getString("last_sale_name", "") ?: "",
-                          p.getInt("last_sale_price", 0),
-                          p.getLong("last_sale_at", 0L)
-                      )
-                      val msg = MqttMessage(gson.toJson(packet).toByteArray())
-                      msg.qos = 1
-                      msg.isRetained = true
-                      client!!.publish("cofferno/$sn/data", msg)
-                  } catch (e: Exception) {
-                      e.printStackTrace()
-                  }
+                      val pkt = TelemetryPacket(sn, 93.4, 9.2, "LeVending OK", loadDrinks(),
+                          resolveDeviceId(), p.getString("last_sale_name", "") ?: "",
+                          p.getInt("last_sale_price", 0), p.getLong("last_sale_at", 0L))
+                      client!!.publish("cofferno/$sn/data", MqttMessage(gson.toJson(pkt).toByteArray()).apply { qos = 1; isRetained = true })
+                  } catch (_: Exception) {}
               }
 
               override fun onDestroy() {
-                  if (sched != null) sched!!.shutdownNow()
-                  try {
-                      if (client != null) client!!.disconnect()
-                  } catch (e: Exception) {
-                      // ignore
-                  }
-                  if (wakeLock != null) wakeLock!!.release()
+                  sched?.shutdownNow()
+                  try { client?.disconnect() } catch (_: Exception) {}
+                  wakeLock?.release()
                   super.onDestroy()
               }
           }
           EOF
 
+          # ---------- Kotlin: BootReceiver ----------
           cat > $P/BootReceiver.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -1190,20 +842,17 @@ jobs:
                   val action = intent?.action ?: return
                   if (action == Intent.ACTION_BOOT_COMPLETED || action == "android.intent.action.QUICKBOOT_POWERON") {
                       val ctx = context ?: return
-                      val prefs = ctx.getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                      if (prefs.getBoolean("agent_active", false)) {
+                      if (ctx.getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE).getBoolean("agent_active", false)) {
                           val i = Intent(ctx, AgentService::class.java)
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                              ctx.startForegroundService(i)
-                          } else {
-                              ctx.startService(i)
-                          }
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i)
+                          else ctx.startService(i)
                       }
                   }
               }
           }
           EOF
 
+          # ---------- Kotlin: MainActivity ----------
           cat > $P/MainActivity.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -1217,26 +866,17 @@ jobs:
           import android.text.method.ScrollingMovementMethod
           import android.view.MotionEvent
           import android.view.View
-          import android.widget.Button
-          import android.widget.EditText
-          import android.widget.LinearLayout
-          import android.widget.TextView
-          import android.widget.Toast
+          import android.widget.*
           import androidx.appcompat.app.AppCompatActivity
           import androidx.core.content.ContextCompat
           import com.google.android.material.bottomnavigation.BottomNavigationView
           import com.google.android.material.card.MaterialCardView
           import com.google.android.material.switchmaterial.SwitchMaterial
           import com.google.gson.Gson
-          import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken
-          import org.eclipse.paho.client.mqttv3.MqttCallback
-          import org.eclipse.paho.client.mqttv3.MqttClient
-          import org.eclipse.paho.client.mqttv3.MqttConnectOptions
-          import org.eclipse.paho.client.mqttv3.MqttMessage
+          import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.text.SimpleDateFormat
-          import java.util.Date
-          import java.util.Locale
+          import java.util.*
           import java.util.concurrent.ConcurrentHashMap
           import java.util.concurrent.Executors
 
@@ -1247,300 +887,180 @@ jobs:
               private val gson = Gson()
               private var lastMsgTime = 0L
               private var isMqttConnected = false
-              private var selectedFilterSerial = "ALL"
-              private var currentSelectedSerial = ""
-              private val machinePackets = ConcurrentHashMap<String, TelemetryPacket>()
-              private val mainHandler = Handler(Looper.getMainLooper())
+              private var selectedFilter = "ALL"
+              private var currentSerial = ""
+              private val packets = ConcurrentHashMap<String, TelemetryPacket>()
+              private val handler = Handler(Looper.getMainLooper())
 
-              private val watchdog = object : Runnable {
-                  override fun run() {
-                      val tvStatus = findViewById<TextView>(R.id.tv_status)
-                      if (!isMqttConnected) {
-                          tvStatus.text = "MQTT connecting..."
-                          tvStatus.setTextColor(col(R.color.yellow))
-                      } else if (System.currentTimeMillis() - lastMsgTime > 9000L) {
-                          tvStatus.text = "Machines offline"
-                          tvStatus.setTextColor(col(R.color.red))
-                      } else {
-                          tvStatus.text = "Online | " + machinePackets.size + " machines"
-                          tvStatus.setTextColor(col(R.color.green))
-                      }
-                      refreshAgentSaleInfo()
-                      mainHandler.postDelayed(this, 2000L)
-                  }
-              }
-
-              private fun col(id: Int): Int = ContextCompat.getColor(this, id)
+              private fun col(id: Int) = ContextCompat.getColor(this, id)
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
 
-                  val tabSales = findViewById<LinearLayout>(R.id.tab_sales)
-                  val tabManage = findViewById<LinearLayout>(R.id.tab_manage)
-                  val tabAgent = findViewById<LinearLayout>(R.id.tab_agent)
-
-                  findViewById<BottomNavigationView>(R.id.bottom_nav).setOnItemSelectedListener { item ->
-                      tabSales.visibility = if (item.itemId == R.id.nav_sales) View.VISIBLE else View.GONE
-                      tabManage.visibility = if (item.itemId == R.id.nav_manage) View.VISIBLE else View.GONE
-                      tabAgent.visibility = if (item.itemId == R.id.nav_agent) View.VISIBLE else View.GONE
+                  val tS = findViewById<LinearLayout>(R.id.tab_sales)
+                  val tM = findViewById<LinearLayout>(R.id.tab_manage)
+                  val tA = findViewById<LinearLayout>(R.id.tab_agent)
+                  findViewById<BottomNavigationView>(R.id.bottom_nav).setOnItemSelectedListener {
+                      tS.visibility = if (it.itemId == R.id.nav_sales) View.VISIBLE else View.GONE
+                      tM.visibility = if (it.itemId == R.id.nav_manage) View.VISIBLE else View.GONE
+                      tA.visibility = if (it.itemId == R.id.nav_agent) View.VISIBLE else View.GONE
                       true
                   }
 
-                  val machines = getSavedMachines()
-                  if (machines.isNotEmpty()) currentSelectedSerial = machines[0]
-                  updateHeaderActiveMachine()
-                  renderFilterChips()
-                  renderMachineSelectorList()
+                  val m = getSavedMachines()
+                  if (m.isNotEmpty()) currentSerial = m[0]
+                  updateHeader(); renderChips(); renderSelector()
 
-                  val tvLogs = findViewById<TextView>(R.id.tv_coffeenet_logs)
-                  tvLogs.movementMethod = ScrollingMovementMethod.getInstance()
-                  tvLogs.setOnTouchListener { v, event ->
+                  val tvL = findViewById<TextView>(R.id.tv_coffeenet_logs)
+                  tvL.movementMethod = ScrollingMovementMethod.getInstance()
+                  tvL.setOnTouchListener { v, e ->
                       v.parent.requestDisallowInterceptTouchEvent(true)
-                      if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                      if (e.action == MotionEvent.ACTION_UP || e.action == MotionEvent.ACTION_CANCEL)
                           v.parent.requestDisallowInterceptTouchEvent(false)
-                      }
                       false
                   }
 
-                  refreshDeviceIdUi()
+                  refreshDevUi()
 
                   findViewById<Button>(R.id.btn_detect_device_id).setOnClickListener {
                       Toast.makeText(this, "Searching...", Toast.LENGTH_SHORT).show()
                       Executors.newSingleThreadExecutor().execute {
-                          getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                              .edit().remove("levending_device_id").apply()
+                          getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE).edit().remove("levending_device_id").apply()
                           val id = LeVendingProbe.findDeviceId(this@MainActivity)
-                          runOnUiThread {
-                              refreshDeviceIdUi()
-                              val msg = if (id.isBlank()) "Not found" else "Device ID: $id"
-                              Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
-                          }
+                          runOnUiThread { refreshDevUi(); Toast.makeText(this@MainActivity, if (id.isBlank()) "Not found" else "ID: $id", Toast.LENGTH_LONG).show() }
                       }
                   }
 
                   findViewById<Button>(R.id.btn_use_device_id).setOnClickListener {
-                      val id = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                          .getString("levending_device_id", "") ?: ""
-                      if (id.isBlank()) {
-                          Toast.makeText(this, "Detect first", Toast.LENGTH_SHORT).show()
-                      } else {
-                          getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                              .edit().putString("custom_serial", id).apply()
-                          findViewById<EditText>(R.id.et_agent_serial).setText(id)
-                          val list = getSavedMachines().toMutableList()
-                          if (!list.contains(id)) {
-                              list.add(id)
-                              saveMachines(list)
-                          }
-                          currentSelectedSerial = id
-                          renderFilterChips()
-                          renderMachineSelectorList()
-                          reconnectMqtt()
-                          Toast.makeText(this, "S/N=$id", Toast.LENGTH_LONG).show()
-                      }
+                      val id = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE).getString("levending_device_id", "") ?: ""
+                      if (id.isBlank()) { Toast.makeText(this, "Detect first", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+                      getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE).edit().putString("custom_serial", id).apply()
+                      findViewById<EditText>(R.id.et_agent_serial).setText(id)
+                      val l = getSavedMachines().toMutableList(); if (!l.contains(id)) { l.add(id); saveMachines(l) }
+                      currentSerial = id; renderChips(); renderSelector(); reconnectMqtt()
+                      Toast.makeText(this, "S/N=$id", Toast.LENGTH_LONG).show()
                   }
 
                   findViewById<Button>(R.id.btn_refresh_top).setOnClickListener {
-                      if (selectedFilterSerial == "ALL") {
-                          for (sn in getSavedMachines()) sendMachineCmd(sn, "REQUEST_UPDATE")
-                      } else {
-                          sendMachineCmd(selectedFilterSerial, "REQUEST_UPDATE")
-                      }
+                      if (selectedFilter == "ALL") getSavedMachines().forEach { cmd(it, "REQUEST_UPDATE") }
+                      else cmd(selectedFilter, "REQUEST_UPDATE")
                   }
 
                   findViewById<Button>(R.id.btn_add_machine).setOnClickListener {
                       val sn = findViewById<EditText>(R.id.et_new_serial).text.toString().trim().lowercase()
                       if (sn.isNotEmpty()) {
-                          val list = getSavedMachines().toMutableList()
-                          if (!list.contains(sn)) {
-                              list.add(sn)
-                              saveMachines(list)
-                              currentSelectedSerial = sn
-                              renderFilterChips()
-                              renderMachineSelectorList()
-                              reconnectMqtt()
-                          }
+                          val l = getSavedMachines().toMutableList()
+                          if (!l.contains(sn)) { l.add(sn); saveMachines(l); currentSerial = sn; renderChips(); renderSelector(); reconnectMqtt() }
                           findViewById<EditText>(R.id.et_new_serial).text.clear()
                       }
                   }
 
                   findViewById<Button>(R.id.btn_save_name).setOnClickListener {
-                      val newName = findViewById<EditText>(R.id.et_custom_name).text.toString().trim()
-                      if (currentSelectedSerial.isNotEmpty() && newName.isNotEmpty()) {
-                          saveMachineName(currentSelectedSerial, newName)
-                          updateHeaderActiveMachine()
-                          renderFilterChips()
-                          renderMachineSelectorList()
+                      val n = findViewById<EditText>(R.id.et_custom_name).text.toString().trim()
+                      if (currentSerial.isNotEmpty() && n.isNotEmpty()) {
+                          saveName(currentSerial, n); updateHeader(); renderChips(); renderSelector()
                           findViewById<EditText>(R.id.et_custom_name).text.clear()
                       }
                   }
 
-                  findViewById<Button>(R.id.btn_save_all_costs).setOnClickListener {
-                      saveAllCostsFromInputs()
-                      renderSalesUi()
-                  }
+                  findViewById<Button>(R.id.btn_save_all_costs).setOnClickListener { saveCosts(); renderSales() }
+                  findViewById<Button>(R.id.btn_reset_counters).setOnClickListener { if (currentSerial.isNotEmpty()) cmd(currentSerial, "RESET_COUNTERS") }
+                  findViewById<Button>(R.id.btn_remote_reboot).setOnClickListener { if (currentSerial.isNotEmpty()) cmd(currentSerial, "REBOOT_MACHINE") }
+                  findViewById<Button>(R.id.btn_remote_flush).setOnClickListener { cmd(currentSerial, "FLUSH") }
+                  findViewById<Button>(R.id.btn_remote_lock).setOnClickListener { cmd(currentSerial, "TOGGLE_LOCK") }
 
-                  findViewById<Button>(R.id.btn_reset_counters).setOnClickListener {
-                      if (currentSelectedSerial.isNotEmpty()) sendMachineCmd(currentSelectedSerial, "RESET_COUNTERS")
-                  }
-                  findViewById<Button>(R.id.btn_remote_reboot).setOnClickListener {
-                      if (currentSelectedSerial.isNotEmpty()) sendMachineCmd(currentSelectedSerial, "REBOOT_MACHINE")
-                  }
-                  findViewById<Button>(R.id.btn_remote_flush).setOnClickListener {
-                      sendMachineCmd(currentSelectedSerial, "FLUSH")
-                  }
-                  findViewById<Button>(R.id.btn_remote_lock).setOnClickListener {
-                      sendMachineCmd(currentSelectedSerial, "TOGGLE_LOCK")
-                  }
-
-                  val agentPrefs = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                  val etAgentSn = findViewById<EditText>(R.id.et_agent_serial)
-                  val saved = agentPrefs.getString("custom_serial", "") ?: ""
-                  val dev = agentPrefs.getString("levending_device_id", "") ?: ""
-                  val fallback = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unit_1"
-                  if (saved.isNotEmpty()) etAgentSn.setText(saved)
-                  else if (dev.isNotEmpty()) etAgentSn.setText(dev)
-                  else etAgentSn.setText(fallback)
+                  val ap = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
+                  val et = findViewById<EditText>(R.id.et_agent_serial)
+                  val s = ap.getString("custom_serial", "") ?: ""
+                  val d = ap.getString("levending_device_id", "") ?: ""
+                  val fb = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unit_1"
+                  et.setText(if (s.isNotEmpty()) s else if (d.isNotEmpty()) d else fb)
 
                   findViewById<Button>(R.id.btn_save_agent_serial).setOnClickListener {
-                      val sn = etAgentSn.text.toString().trim().lowercase()
-                      if (sn.isNotEmpty()) {
-                          agentPrefs.edit().putString("custom_serial", sn).apply()
-                          Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
-                      }
+                      val sn = et.text.toString().trim().lowercase()
+                      if (sn.isNotEmpty()) { ap.edit().putString("custom_serial", sn).apply(); Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show() }
                   }
 
                   val sw = findViewById<SwitchMaterial>(R.id.switch_agent)
                   val tvSt = findViewById<TextView>(R.id.tv_agent_status)
-                  sw.isChecked = agentPrefs.getBoolean("agent_active", false)
+                  sw.isChecked = ap.getBoolean("agent_active", false)
                   tvSt.text = if (sw.isChecked) "Service ON" else "Stopped"
                   sw.setOnCheckedChangeListener { _, on ->
-                      agentPrefs.edit().putBoolean("agent_active", on).apply()
+                      ap.edit().putBoolean("agent_active", on).apply()
                       if (on) {
                           tvSt.text = "Starting..."
                           val i = Intent(this, AgentService::class.java)
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
-                          else startService(i)
-                          mainHandler.postDelayed({ moveTaskToBack(true) }, 800L)
-                      } else {
-                          stopService(Intent(this, AgentService::class.java))
-                          tvSt.text = "Stopped"
-                      }
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+                          handler.postDelayed({ moveTaskToBack(true) }, 800)
+                      } else { stopService(Intent(this, AgentService::class.java)); tvSt.text = "Stopped" }
                   }
 
                   findViewById<Button>(R.id.btn_scan_coffeenet).setOnClickListener {
-                      tvLogs.text = "Scanning..."
-                      tvLogs.scrollTo(0, 0)
+                      tvL.text = "Scanning..."; tvL.scrollTo(0, 0)
                       Executors.newSingleThreadExecutor().execute {
-                          val result = LeVendingProbe.fullScan(this@MainActivity)
-                          runOnUiThread {
-                              tvLogs.text = result
-                              tvLogs.scrollTo(0, 0)
-                              refreshDeviceIdUi()
-                          }
+                          val r = LeVendingProbe.fullScan(this@MainActivity)
+                          runOnUiThread { tvL.text = r; tvL.scrollTo(0, 0); refreshDevUi() }
                       }
                   }
 
-                  Executors.newSingleThreadExecutor().execute {
-                      LeVendingProbe.findDeviceId(this@MainActivity)
-                      runOnUiThread { refreshDeviceIdUi() }
-                  }
-
+                  Executors.newSingleThreadExecutor().execute { LeVendingProbe.findDeviceId(this@MainActivity); runOnUiThread { refreshDevUi() } }
                   reconnectMqtt()
-                  mainHandler.post(watchdog)
-              }
-
-              private fun refreshDeviceIdUi() {
-                  val id = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                      .getString("levending_device_id", "") ?: ""
-                  findViewById<TextView>(R.id.tv_detected_device_id).text =
-                      if (id.isBlank()) "not found" else id
-              }
-
-              private fun refreshAgentSaleInfo() {
-                  val p = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                  val name = p.getString("last_sale_name", "") ?: ""
-                  val price = p.getInt("last_sale_price", 0)
-                  val at = p.getLong("last_sale_at", 0L)
-                  val tv = findViewById<TextView>(R.id.tv_last_sale)
-                  if (at == 0L) {
-                      tv.text = "Last sale: -"
-                  } else {
-                      val t = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at))
-                      tv.text = "Last sale: $name | $price | $t"
-                  }
-              }
-
-              private fun updateHeaderActiveMachine() {
-                  val tv = findViewById<TextView>(R.id.tv_active_machine)
-                  if (selectedFilterSerial == "ALL") {
-                      tv.text = "All machines"
-                  } else {
-                      tv.text = getMachineName(selectedFilterSerial) + " (" + selectedFilterSerial + ")"
-                  }
-              }
-
-              private fun renderFilterChips() {
-                  val container = findViewById<LinearLayout>(R.id.ll_filter_chips)
-                  container.removeAllViews()
-                  addChip(container, "ALL", "ALL")
-                  for (sn in getSavedMachines()) {
-                      addChip(container, getMachineName(sn), sn)
-                  }
-              }
-
-              private fun addChip(container: LinearLayout, label: String, serial: String) {
-                  val isSel = selectedFilterSerial == serial
-                  val btn = Button(this)
-                  btn.text = label
-                  btn.textSize = 12f
-                  btn.setBackgroundColor(if (isSel) col(R.color.accent) else col(R.color.card))
-                  btn.setTextColor(if (isSel) col(R.color.dark) else col(R.color.white))
-                  btn.setOnClickListener {
-                      selectedFilterSerial = serial
-                      if (serial != "ALL") currentSelectedSerial = serial
-                      updateHeaderActiveMachine()
-                      renderFilterChips()
-                      renderMachineSelectorList()
-                      renderSalesUi()
-                  }
-                  val lp = LinearLayout.LayoutParams(
-                      LinearLayout.LayoutParams.WRAP_CONTENT,
-                      LinearLayout.LayoutParams.WRAP_CONTENT
-                  )
-                  lp.setMargins(0, 0, 12, 0)
-                  container.addView(btn, lp)
-              }
-
-              private fun renderMachineSelectorList() {
-                  val container = findViewById<LinearLayout>(R.id.ll_machine_selector)
-                  container.removeAllViews()
-                  val machines = getSavedMachines()
-                  if (machines.isEmpty()) {
-                      val tv = TextView(this)
-                      tv.text = "Add device id"
-                      tv.setTextColor(col(R.color.muted))
-                      container.addView(tv)
-                      return
-                  }
-                  for (sn in machines) {
-                      val sel = sn == currentSelectedSerial
-                      val btn = Button(this)
-                      btn.text = getMachineName(sn) + " [" + sn + "]"
-                      btn.setBackgroundColor(if (sel) col(R.color.accent) else col(R.color.card))
-                      btn.setTextColor(if (sel) col(R.color.dark) else col(R.color.white))
-                      btn.textSize = 12f
-                      btn.setOnClickListener {
-                          currentSelectedSerial = sn
-                          renderMachineSelectorList()
+                  handler.post(object : Runnable {
+                      override fun run() {
+                          val tv = findViewById<TextView>(R.id.tv_status)
+                          when {
+                              !isMqttConnected -> { tv.text = "MQTT connecting..."; tv.setTextColor(col(R.color.yellow)) }
+                              System.currentTimeMillis() - lastMsgTime > 9000 -> { tv.text = "Machines offline"; tv.setTextColor(col(R.color.red)) }
+                              else -> { tv.text = "Online | ${packets.size} machines"; tv.setTextColor(col(R.color.green)) }
+                          }
+                          val p = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
+                          val at = p.getLong("last_sale_at", 0L)
+                          findViewById<TextView>(R.id.tv_last_sale).text = if (at == 0L) "Last sale: -"
+                          else "Last sale: ${p.getString("last_sale_name", "")} | ${p.getInt("last_sale_price", 0)} | ${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at))}"
+                          handler.postDelayed(this, 2000)
                       }
-                      val lp = LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT
-                      )
-                      lp.setMargins(0, 4, 0, 4)
-                      container.addView(btn, lp)
+                  })
+              }
+
+              private fun refreshDevUi() {
+                  val id = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE).getString("levending_device_id", "") ?: ""
+                  findViewById<TextView>(R.id.tv_detected_device_id).text = if (id.isBlank()) "not found" else id
+              }
+
+              private fun updateHeader() {
+                  findViewById<TextView>(R.id.tv_active_machine).text =
+                      if (selectedFilter == "ALL") "All machines" else "${getName(selectedFilter)} ($selectedFilter)"
+              }
+
+              private fun renderChips() {
+                  val c = findViewById<LinearLayout>(R.id.ll_filter_chips); c.removeAllViews()
+                  chip(c, "ALL", "ALL")
+                  getSavedMachines().forEach { chip(c, getName(it), it) }
+              }
+
+              private fun chip(c: LinearLayout, label: String, sn: String) {
+                  val b = Button(this).apply {
+                      text = label; textSize = 12f
+                      setBackgroundColor(if (selectedFilter == sn) col(R.color.accent) else col(R.color.card))
+                      setTextColor(if (selectedFilter == sn) col(R.color.dark) else col(R.color.white))
+                      setOnClickListener { selectedFilter = sn; if (sn != "ALL") currentSerial = sn; updateHeader(); renderChips(); renderSelector(); renderSales() }
+                  }
+                  c.addView(b, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 12, 0) })
+              }
+
+              private fun renderSelector() {
+                  val c = findViewById<LinearLayout>(R.id.ll_machine_selector); c.removeAllViews()
+                  val m = getSavedMachines()
+                  if (m.isEmpty()) { c.addView(TextView(this).apply { text = "Add device id"; setTextColor(col(R.color.muted)) }); return }
+                  m.forEach { sn ->
+                      val b = Button(this).apply {
+                          text = "${getName(sn)} [$sn]"; textSize = 12f
+                          setBackgroundColor(if (sn == currentSerial) col(R.color.accent) else col(R.color.card))
+                          setTextColor(if (sn == currentSerial) col(R.color.dark) else col(R.color.white))
+                          setOnClickListener { currentSerial = sn; renderSelector() }
+                      }
+                      c.addView(b, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 4, 0, 4) })
                   }
               }
 
@@ -1548,242 +1068,160 @@ jobs:
                   Executors.newSingleThreadExecutor().execute {
                       while (true) {
                           try {
-                              val need = mqttClient == null || mqttClient?.isConnected != true
-                              if (need) {
-                                  val cid = "Phone_" + (System.currentTimeMillis() % 100000L)
-                                  mqttClient = MqttClient(broker, cid, MemoryPersistence())
-                                  val options = MqttConnectOptions()
-                                  options.isAutomaticReconnect = true
-                                  options.connectionTimeout = 15
-                                  options.keepAliveInterval = 30
-                                  mqttClient!!.connect(options)
+                              if (mqttClient?.isConnected != true) {
+                                  mqttClient = MqttClient(broker, "Phone_${System.currentTimeMillis() % 100000}", MemoryPersistence())
                                   mqttClient!!.setCallback(object : MqttCallback {
-                                      override fun connectionLost(cause: Throwable?) {
-                                          isMqttConnected = false
-                                      }
-                                      override fun messageArrived(topic: String?, message: MqttMessage?) {
+                                      override fun connectionLost(c: Throwable?) { isMqttConnected = false }
+                                      override fun messageArrived(t: String?, m: MqttMessage?) {
                                           try {
-                                              val json = message?.toString() ?: return
-                                              val packet = gson.fromJson(json, TelemetryPacket::class.java)
-                                              machinePackets[packet.serial] = packet
-                                              lastMsgTime = System.currentTimeMillis()
-                                              if (packet.deviceId.isNotBlank()) {
-                                                  getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
-                                                      .edit()
-                                                      .putString("levending_device_id", packet.deviceId)
-                                                      .apply()
-                                              }
-                                              runOnUiThread {
-                                                  renderSalesUi()
-                                                  renderCostInputs(packet)
-                                                  refreshDeviceIdUi()
-                                              }
-                                          } catch (e: Exception) {
-                                              // ignore
-                                          }
+                                              val p = gson.fromJson(m?.toString() ?: return, TelemetryPacket::class.java)
+                                              packets[p.serial] = p; lastMsgTime = System.currentTimeMillis()
+                                              runOnUiThread { renderSales(); renderCosts(p); refreshDevUi() }
+                                          } catch (_: Exception) {}
                                       }
-                                      override fun deliveryComplete(token: IMqttDeliveryToken?) {}
+                                      override fun deliveryComplete(t: IMqttDeliveryToken?) {}
                                   })
+                                  mqttClient!!.connect(MqttConnectOptions().apply { isAutomaticReconnect = true; connectionTimeout = 15; keepAliveInterval = 30 })
                                   mqttClient!!.subscribe("cofferno/+/data", 1)
                                   isMqttConnected = true
                               }
-                          } catch (e: Exception) {
-                              isMqttConnected = false
-                          }
-                          try {
-                              Thread.sleep(5000L)
-                          } catch (e: Exception) {
-                              // ignore
-                          }
+                          } catch (_: Exception) { isMqttConnected = false }
+                          Thread.sleep(5000)
                       }
                   }
               }
 
-              private fun sendMachineCmd(serial: String, cmd: String) {
+              private fun cmd(sn: String, c: String) {
                   Executors.newSingleThreadExecutor().execute {
-                      try {
-                          if (serial.isNotEmpty() && mqttClient != null && mqttClient!!.isConnected) {
-                              val msg = MqttMessage(cmd.toByteArray())
-                              msg.qos = 1
-                              mqttClient!!.publish("cofferno/$serial/cmd", msg)
-                          }
-                      } catch (e: Exception) {
-                          e.printStackTrace()
-                      }
+                      try { if (sn.isNotEmpty() && mqttClient?.isConnected == true) mqttClient!!.publish("cofferno/$sn/cmd", MqttMessage(c.toByteArray()).apply { qos = 1 }) } catch (_: Exception) {}
                   }
               }
 
-              private fun renderSalesUi() {
-                  val drinksContainer = findViewById<LinearLayout>(R.id.ll_drinks_container)
-                  val tvSummaryTitle = findViewById<TextView>(R.id.tv_summary_title)
-                  drinksContainer.removeAllViews()
-
-                  val packets = ArrayList<TelemetryPacket>()
-                  if (selectedFilterSerial == "ALL") {
-                      tvSummaryTitle.text = "Revenue ALL"
-                      packets.addAll(machinePackets.values)
-                  } else {
-                      tvSummaryTitle.text = getMachineName(selectedFilterSerial)
-                      val one = machinePackets[selectedFilterSerial]
-                      if (one != null) packets.add(one)
-                  }
-
-                  if (packets.isEmpty()) {
-                      val tv = TextView(this)
-                      tv.text = "No data. Enable agent and make a sale."
-                      tv.setTextColor(col(R.color.muted))
-                      drinksContainer.addView(tv)
+              private fun renderSales() {
+                  val dc = findViewById<LinearLayout>(R.id.ll_drinks_container); dc.removeAllViews()
+                  val pk = if (selectedFilter == "ALL") { findViewById<TextView>(R.id.tv_summary_title).text = "Revenue ALL"; packets.values.toList() }
+                  else { findViewById<TextView>(R.id.tv_summary_title).text = getName(selectedFilter); packets[selectedFilter]?.let { listOf(it) } ?: emptyList() }
+                  if (pk.isEmpty()) {
+                      dc.addView(TextView(this).apply { text = "No data."; setTextColor(col(R.color.muted)) })
                       findViewById<TextView>(R.id.tv_total_revenue).text = "0"
                       findViewById<TextView>(R.id.tv_total_profit).text = "0"
-                      findViewById<TextView>(R.id.tv_total_cups).text = "Cups: 0"
-                      return
+                      findViewById<TextView>(R.id.tv_total_cups).text = "Cups: 0"; return
                   }
-
-                  val map = LinkedHashMap<String, MergedDrink>()
-                  var rev = 0
-                  var prof = 0
-                  var cups = 0
-                  for (p in packets) {
-                      for (d in p.drinks) {
-                          val cost = getDrinkCost(d.name)
-                          val existing = map[d.name]
-                          if (existing == null) {
-                              map[d.name] = MergedDrink(d.name, d.count, d.price, cost)
-                          } else {
-                              existing.count = existing.count + d.count
-                          }
-                      }
+                  val map = linkedMapOf<String, MergedDrink>(); var rev = 0; var prof = 0; var cups = 0
+                  pk.forEach { p -> p.drinks.forEach { d ->
+                      val cost = getCost(d.name); val e = map[d.name]
+                      if (e == null) map[d.name] = MergedDrink(d.name, d.count, d.price, cost) else e.count += d.count
+                  } }
+                  map.values.forEach { d ->
+                      val r = d.count * d.price; val pr = d.count * (d.price - d.cost)
+                      rev += r; prof += pr; cups += d.count
+                      val card = MaterialCardView(this).apply { setCardBackgroundColor(col(R.color.card)); radius = 16f; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 12, 12) } }
+                      val ll = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 20, 24, 20) }
+                      ll.addView(TextView(this).apply { text = "${d.name} x ${d.count}"; setTextColor(col(R.color.white)); textSize = 15f })
+                      ll.addView(TextView(this).apply { text = "price ${d.price} cost ${d.cost} rev $r profit $pr"; setTextColor(col(R.color.muted)); textSize = 12f })
+                      card.addView(ll); dc.addView(card)
                   }
-                  for (d in map.values) {
-                      val r = d.count * d.price
-                      val pr = d.count * (d.price - d.cost)
-                      rev += r
-                      prof += pr
-                      cups += d.count
-                      val card = MaterialCardView(this)
-                      card.setCardBackgroundColor(col(R.color.card))
-                      card.radius = 16f
-                      val lp = LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT
-                      )
-                      lp.setMargins(0, 0, 12, 12)
-                      card.layoutParams = lp
-                      val colLay = LinearLayout(this)
-                      colLay.orientation = LinearLayout.VERTICAL
-                      colLay.setPadding(24, 20, 24, 20)
-                      val t1 = TextView(this)
-                      t1.text = d.name + " x " + d.count
-                      t1.setTextColor(col(R.color.white))
-                      t1.textSize = 15f
-                      val t2 = TextView(this)
-                      t2.text = "price " + d.price + " cost " + d.cost + " rev " + r + " profit " + pr
-                      t2.setTextColor(col(R.color.muted))
-                      t2.textSize = 12f
-                      colLay.addView(t1)
-                      colLay.addView(t2)
-                      card.addView(colLay)
-                      drinksContainer.addView(card)
-                  }
-                  findViewById<TextView>(R.id.tv_total_revenue).text = "" + rev
-                  findViewById<TextView>(R.id.tv_total_profit).text = "" + prof
-                  findViewById<TextView>(R.id.tv_total_cups).text = "Cups: " + cups
+                  findViewById<TextView>(R.id.tv_total_revenue).text = "$rev"
+                  findViewById<TextView>(R.id.tv_total_profit).text = "$prof"
+                  findViewById<TextView>(R.id.tv_total_cups).text = "Cups: $cups"
               }
 
-              private fun renderCostInputs(packet: TelemetryPacket) {
-                  val box = findViewById<LinearLayout>(R.id.ll_costs_container)
-                  if (box.childCount > 0) return
-                  for (d in packet.drinks) {
-                      val row = LinearLayout(this)
-                      row.orientation = LinearLayout.HORIZONTAL
-                      row.setPadding(0, 6, 0, 6)
-                      val tv = TextView(this)
-                      tv.text = d.name
-                      tv.setTextColor(col(R.color.white))
-                      tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                      val et = EditText(this)
-                      et.setText("" + getDrinkCost(d.name))
-                      et.setTextColor(col(R.color.accent))
-                      et.inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                      et.tag = d.name
-                      et.layoutParams = LinearLayout.LayoutParams(160, LinearLayout.LayoutParams.WRAP_CONTENT)
-                      row.addView(tv)
-                      row.addView(et)
-                      box.addView(row)
+              private fun renderCosts(p: TelemetryPacket) {
+                  val b = findViewById<LinearLayout>(R.id.ll_costs_container); if (b.childCount > 0) return
+                  p.drinks.forEach { d ->
+                      val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 6, 0, 6) }
+                      row.addView(TextView(this).apply { text = d.name; setTextColor(col(R.color.white)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) })
+                      row.addView(EditText(this).apply { setText("${getCost(d.name)}"); setTextColor(col(R.color.accent)); inputType = android.text.InputType.TYPE_CLASS_NUMBER; tag = d.name; layoutParams = LinearLayout.LayoutParams(160, LinearLayout.LayoutParams.WRAP_CONTENT) })
+                      b.addView(row)
                   }
               }
 
-              private fun saveAllCostsFromInputs() {
-                  val box = findViewById<LinearLayout>(R.id.ll_costs_container)
+              private fun saveCosts() {
+                  val b = findViewById<LinearLayout>(R.id.ll_costs_container)
                   val ed = getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).edit()
-                  var i = 0
-                  while (i < box.childCount) {
-                      val row = box.getChildAt(i) as? LinearLayout
-                      if (row != null) {
-                          val et = row.getChildAt(1) as? EditText
-                          if (et != null) {
-                              val name = et.tag as? String
-                              if (name != null) {
-                                  val v = et.text.toString().toIntOrNull() ?: 40
-                                  ed.putInt("cost_$name", v)
-                              }
-                          }
-                      }
-                      i++
-                  }
-                  ed.apply()
+                  for (i in 0 until b.childCount) {
+                      val row = b.getChildAt(i) as? LinearLayout ?: continue
+                      val et = row.getChildAt(1) as? EditText ?: continue
+                      val n = et.tag as? String ?: continue
+                      ed.putInt("cost_$n", et.text.toString().toIntOrNull() ?: 40)
+                  }; ed.apply()
               }
 
-              private fun getDrinkCost(n: String): Int {
-                  return getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).getInt("cost_$n", 40)
-              }
-
-              private fun getSavedMachines(): List<String> {
-                  val raw = getSharedPreferences("cofferno_app", Context.MODE_PRIVATE)
-                      .getString("machines_list", "") ?: ""
-                  if (raw.isBlank()) return emptyList()
-                  return raw.split(",").filter { it.isNotBlank() }
-              }
-
-              private fun saveMachines(list: List<String>) {
-                  getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).edit()
-                      .putString("machines_list", list.distinct().joinToString(","))
-                      .apply()
-              }
-
-              private fun getMachineName(serial: String): String {
-                  val n = getSharedPreferences("cofferno_names", Context.MODE_PRIVATE)
-                      .getString("name_$serial", "") ?: ""
-                  return if (n.isNotBlank()) n else "LE $serial"
-              }
-
-              private fun saveMachineName(serial: String, name: String) {
-                  getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit()
-                      .putString("name_$serial", name)
-                      .apply()
-              }
+              private fun getCost(n: String) = getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).getInt("cost_$n", 40)
+              private fun getSavedMachines() = (getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).getString("machines_list", "") ?: "").split(",").filter { it.isNotBlank() }
+              private fun saveMachines(l: List<String>) { getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).edit().putString("machines_list", l.distinct().joinToString(",")).apply() }
+              private fun getName(s: String): String { val n = getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).getString("name_$s", "") ?: ""; return if (n.isNotBlank()) n else "LE $s" }
+              private fun saveName(s: String, n: String) { getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().putString("name_$s", n).apply() }
           }
           EOF
 
           echo "Project generated OK"
 
+      # ============================================================
+      #  СБОРКА APK
+      # ============================================================
       - name: Build APK
         run: |
           set -o pipefail
           gradle assembleDebug --no-daemon 2>&1 | tee build.log
           exit ${PIPESTATUS[0]}
 
-      - name: Send APK
+      # ============================================================
+      #  ОТПРАВКА APK В TELEGRAM  (исправленная версия)
+      # ============================================================
+      - name: Send APK to Telegram
         if: success()
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
-          APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -n1)
-          curl -F chat_id="${{ env.CHAT_ID }}" \
-               -F document=@"$APK" \
-               -F caption="Cofferno 7.2.5 A+B DeviceID" \
-               "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
+          set -ex
 
-      - name: Send compile errors to Telegram
+          # 1. Явный путь к APK (AGP 8.2.2 всегда кладёт сюда)
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          # 2. Проверяем, что файл существует и не пустой
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK not found at $APK"
+            echo "Searching for any .apk files..."
+            find . -name "*.apk" -type f 2>/dev/null || true
+            exit 1
+          fi
+
+          ls -lh "$APK"
+
+          # 3. Проверяем, что секреты заданы
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "ERROR: BOT_TOKEN or CHAT_ID secret is not set!"
+            echo "Go to: Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          fi
+
+          # 4. Отправляем с -f (fail on HTTP error) и выводим ответ Telegram
+          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -f \
+            -F chat_id="$CHAT_ID" \
+            -F document=@"$APK" \
+            -F caption="☕ Cofferno v7.2.6 build $(date +%H:%M)" \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" || true)
+
+          echo "Telegram response: $RESPONSE"
+
+          # 5. Проверяем, что Telegram ответил ok:true
+          if echo "$RESPONSE" | grep -q '"ok":true'; then
+            echo "APK sent successfully!"
+          else
+            echo "WARNING: Telegram may have rejected the file."
+            exit 1
+          fi
+
+      # ============================================================
+      #  ОТПРАВКА ОШИБОК СБОРКИ В TELEGRAM
+      # ============================================================
+      - name: Send errors to Telegram
         if: failure()
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
           python3 - << 'PY'
           import urllib.parse, urllib.request, os
@@ -1791,16 +1229,19 @@ jobs:
           log = ""
           if os.path.exists("build.log"):
               with open("build.log", "r", errors="ignore") as f:
-                  all_lines = f.readlines()
-              filtered = [l for l in all_lines if any(k in l for k in ["e: ", "w: ", "FAILURE:", "What went wrong", "> Task :app:", "error:"])]
-              if not filtered:
-                  filtered = all_lines[-80:]
-              log = "".join(filtered[-60:])
+                  lines = f.readlines()
+              err = [l for l in lines if any(k in l for k in ["e: ", "FAILURE:", "What went wrong", "error:"])]
+              log = "".join(err[-50:] if err else lines[-60:])
 
           text = f"❌ Cofferno BUILD FAILED\n\n{log}"[:4000]
           token = os.environ.get("BOT_TOKEN", "")
           chat = os.environ.get("CHAT_ID", "")
           if token and chat:
               data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
-              urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+              try:
+                  urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+              except Exception as e:
+                  print(f"Telegram error: {e}")
+          else:
+              print("BOT_TOKEN or CHAT_ID not set")
           PY
