@@ -67,8 +67,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 80
-                  versionName "7.2.8"
+                  versionCode 81
+                  versionName "7.2.9"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -585,6 +585,13 @@ jobs:
               fun isDropCupMarker(line: String): Boolean =
                   line.contains("AloneDropCupActivity") && (line.contains("Displayed") || line.contains("START"))
 
+              fun isSaleMarker(line: String): Boolean =
+                  isApiSaleSuccess(line) ||
+                  line.contains("MakeDrinkVideoActivity") ||
+                  line.contains("AloneDropCupActivity") ||
+                  line.contains("MakeDrinkPresenter") ||
+                  line.contains("PayActivity")
+
               fun extractDrinkName(line: String): String? {
                   for (p in goodsNamePatterns) {
                       val m = p.matcher(line)
@@ -621,7 +628,7 @@ jobs:
               }
 
               fun fullScan(context: Context): String {
-                  val sb = StringBuilder("=== ДИАГНОСТИКА COFFERNO 7.2.8 ===\n")
+                  val sb = StringBuilder("=== ДИАГНОСТИКА COFFERNO 7.2.9 ===\n")
                   val dev = findDeviceId(context)
                   sb.append("ID устройства: ").append(if (dev.isBlank()) "НЕ НАЙДЕН" else dev).append("\n\n")
                   try {
@@ -784,7 +791,6 @@ jobs:
               private fun registerDrinkSale(name: String, price: Int) {
                   val drinks = loadDrinks()
                   val found = drinks.firstOrNull { it.name.equals(name, ignoreCase = true) }
-                  // Если пришла цена <= 0, берем цену из кэша напитка (если он есть). Иначе ставим 0.
                   val finalPrice = if (price > 0) price else found?.price?.takeIf { it > 0 } ?: 0
                   
                   if (found != null) { 
@@ -1272,7 +1278,7 @@ jobs:
           RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
             -F chat_id="$CHAT_ID" \
             -F document=@"$APK" \
-            -F caption="☕ Cofferno LV-307 v7.2.8 (Сборка $(date +'%d.%m %H:%M'))" \
+            -F caption="☕ Cofferno LV-307 v7.2.9 (Сборка $(date +'%d.%m %H:%M'))" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument")
 
           echo "Telegram Response: $RESPONSE"
