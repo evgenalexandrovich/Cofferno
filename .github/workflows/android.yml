@@ -64,8 +64,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 87
-                  versionName "7.4.3"
+                  versionCode 88
+                  versionName "7.4.4"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -95,6 +95,7 @@ jobs:
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
               <uses-permission android:name="android.permission.READ_LOGS"/>
               <application
                   android:allowBackup="true"
@@ -364,7 +365,7 @@ jobs:
                                           android:textSize="12sp" app:strokeColor="@color/accent" app:strokeWidth="1dp"/>
                                   </LinearLayout>
                                   <TextView android:id="@+id/tv_remote_logs_output"
-                                      android:layout_width="match_parent" android:layout_height="260dp"
+                                      android:layout_width="match_parent" android:layout_height="280dp"
                                       android:layout_marginTop="10dp" android:background="#000000"
                                       android:fadeScrollbars="false" android:gravity="top|start"
                                       android:overScrollMode="always" android:padding="10dp"
@@ -556,6 +557,9 @@ jobs:
           import java.io.File
           import java.io.InputStreamReader
           import java.net.URLDecoder
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
           import java.util.regex.Pattern
 
           object LeVendingProbe {
@@ -566,7 +570,6 @@ jobs:
                   Pattern.compile("device_id[=:]([0-9]{6,18})", Pattern.CASE_INSENSITIVE)
               )
 
-              // ЧИСТЫЕ НАЗВАНИЯ ДЛЯ МЕНЮ
               private val drinkPatterns = listOf(
                   Pattern.compile("""(?i)двойн\w*\s*эспрессо""") to "Двойной Эспрессо",
                   Pattern.compile("""(?i)двойн\w*\s*американо""") to "Двойной Американо",
@@ -597,7 +600,6 @@ jobs:
                   Pattern.compile("""(?i)espresso""") to "Эспрессо"
               )
 
-              // ПОДДЕРЖКА ДРОБНЫХ ЦЕН (150.0 -> 150)
               private val pricePatterns = arrayOf(
                   Pattern.compile("""(?i)(?:goodsPrice|salePrice|payAmount|price|amount|money|pay|sum|total|cost|fee|цена|сумма|стоимость)[=:\s]+([0-9]{2,5})(?:\.[0-9]+)?"""),
                   Pattern.compile("""(?i)["'](?:goodsPrice|salePrice|payAmount|price|amount)["']\s*:\s*([0-9]{2,5})(?:\.[0-9]+)?""")
@@ -630,7 +632,7 @@ jobs:
 
               fun scrapeDeviceIdFromLogcat(): String? {
                   try {
-                      val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "800"))
+                      val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "500"))
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
                       while (true) {
                           val line = reader.readLine() ?: break
@@ -671,11 +673,9 @@ jobs:
                           return true
                       }
                   }
-
                   if (l.contains("zjhttp") && (l.contains("sale") || l.contains("order") || l.contains("goods") || l.contains("pay") || l.contains("shipment"))) {
                       return true
                   }
-
                   return false
               }
 
@@ -729,54 +729,72 @@ jobs:
               }
 
               fun fullScan(context: Context): String {
-                  val sb = StringBuilder("=== ДИАГНОСТИКА COFFERNO 7.4.3 ===\n")
+                  val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                  val sb = StringBuilder("=== ДИАГНОСТИКА COFFERNO [$timeStr] ===\n")
                   val dev = findDeviceId(context)
-                  sb.append("ID устройства: ").append(if (dev.isBlank()) "НЕ НАЙДЕН" else dev).append("\n\n")
+                  sb.append("Device ID: ").append(if (dev.isBlank()) "НЕ НАЙДЕН" else dev).append("\n\n")
+
                   try {
                       val pkgs = context.packageManager.getInstalledPackages(0)
                       sb.append("--- ПРИЛОЖЕНИЯ АВТОМАТА ---\n")
                       for (p in pkgs) {
                           val n = p.packageName.lowercase()
-                          if (n.contains("le.") || n.contains("vending") || n.contains("coffee") || n.contains("ylpush"))
-                              sb.append(" * ").append(p.packageName).append("\n")
+                          if (n.contains("le.") || n.contains("vending") || n.contains("coffee") || n.contains("ylpush") || n.contains("zj"))
+                              sb.append(" • ").append(p.packageName).append("\n")
                       }
-                  } catch (e: Exception) { sb.append(e.message).append("\n") }
-                  sb.append("\n--- ПАПКИ НА SD КАРТЕ ---\n")
+                  } catch (e: Exception) { sb.append("Пакеты: ").append(e.message).append("\n") }
+
+                  sb.append("\n--- ФАЙЛЫ В ПАМЯТИ ---\n")
                   val root = Environment.getExternalStorageDirectory()
-                  for (rel in arrayOf("Download",
-                      "Android/data/com.le.vmcoffeestandard",
+                  for (rel in arrayOf("Download", "vm_log", "levending",
                       "Android/data/com.le.vmcoffeestandard/files",
-                      "Android/data/com.levending.ylpush",
                       "Android/data/com.levending.ylpush/files")) {
                       val f = File(root, rel)
                       if (f.exists()) {
-                          sb.append("ПАПКА ").append(f.absolutePath).append("\n")
-                          f.listFiles()?.take(30)?.forEach { c ->
-                              sb.append("  - ").append(c.name).append(" (").append(c.length()).append(" байт)\n")
+                          sb.append("📁 ").append(f.absolutePath).append("\n")
+                          f.listFiles()?.take(20)?.forEach { c ->
+                              sb.append("   - ").append(c.name).append(" (").append(c.length() / 1024).append(" KB)\n")
                           }
                       }
                   }
-                  sb.append("\n--- ЛОГИ LOGCAT ---\n")
+
+                  sb.append("\n--- ЛОГИ LOGCAT (ПОСЛЕДНИЕ СОБЫТИЯ) ---\n")
                   var saleHits = 0; var shown = 0
+
+                  var reader: BufferedReader? = null
                   try {
-                      val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "5000", "-b", "all"))
-                      val reader = BufferedReader(InputStreamReader(process.inputStream))
-                      while (true) {
-                          val line = reader.readLine() ?: break
-                          if (isSystemNoise(line)) continue
+                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "2000", "-v", "time"))
+                      reader = BufferedReader(InputStreamReader(p.inputStream))
+                  } catch (_: Exception) {
+                      try {
+                          val pRoot = Runtime.getRuntime().exec(arrayOf("su", "-c", "logcat -d -t 2000 -v time"))
+                          reader = BufferedReader(InputStreamReader(pRoot.inputStream))
+                      } catch (_: Exception) {}
+                  }
 
-                          val interesting = isSaleMarker(line) || findDeviceIdFromLogLine(line) != null ||
-                              line.contains("ZJHTTP", true) || line.contains("ylapi", true) ||
-                              extractDrinkName(line) != null || extractPrice(line) != null || extractOrderId(line) != null
+                  if (reader != null) {
+                      try {
+                          while (true) {
+                              val line = reader.readLine() ?: break
+                              if (isSystemNoise(line)) continue
 
-                          if (interesting) {
-                              if (isSaleMarker(line)) saleHits++
-                              sb.append(if (line.length > 600) line.substring(0, 600) + "..." else line).append("\n")
-                              if (++shown >= 120) break
+                              val interesting = isSaleMarker(line) || findDeviceIdFromLogLine(line) != null ||
+                                  line.contains("ZJHTTP", true) || line.contains("ylapi", true) ||
+                                  extractDrinkName(line) != null || extractPrice(line) != null || extractOrderId(line) != null
+
+                              if (interesting) {
+                                  if (isSaleMarker(line)) saleHits++
+                                  sb.append(if (line.length > 350) line.substring(0, 350) + "..." else line).append("\n")
+                                  if (++shown >= 90) break
+                              }
                           }
-                      }
-                  } catch (e: Exception) { sb.append("logcat: ").append(e.message).append("\n") }
-                  sb.append("\nСобытий приготовления: ").append(saleHits).append("\n=== КОНЕЦ ОТЧЁТА ===\n")
+                      } catch (e: Exception) { sb.append("Чтение логов: ").append(e.message).append("\n") }
+                  } else {
+                      sb.append("Logcat недоступен в данной сессии.\n")
+                  }
+
+                  sb.append("\nНайдено событий приготовления: ").append(saleHits)
+                  sb.append("\n=== КОНЕЦ ОТЧЕТА ===")
                   return sb.toString()
               }
           }
@@ -904,7 +922,7 @@ jobs:
                   logExec.execute {
                       try {
                           val r = BufferedReader(InputStreamReader(
-                              Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time", "-b", "all")).inputStream))
+                              Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time")).inputStream))
                           while (wakeLock?.isHeld == true) {
                               val line = r.readLine() ?: break
                               val now = System.currentTimeMillis()
@@ -975,9 +993,19 @@ jobs:
                                               "SCAN_LOGS" -> {
                                                   Executors.newSingleThreadExecutor().execute {
                                                       try {
+                                                          // 1. Быстрый ответ (ACK)
+                                                          val ackMsg = "⏳ Автомат [$sn] принял команду. Идет сбор логов, пожалуйста подождите..."
+                                                          client?.publish("cofferno/$sn/logs", MqttMessage(ackMsg.toByteArray(Charsets.UTF_8)).apply { qos = 1 })
+
+                                                          // 2. Полный сбор и отправка логов
                                                           val scanResult = LeVendingProbe.fullScan(this@AgentService)
-                                                          client?.publish("cofferno/$sn/logs", MqttMessage(scanResult.toByteArray()).apply { qos = 1 })
-                                                      } catch (_: Exception) {}
+                                                          client?.publish("cofferno/$sn/logs", MqttMessage(scanResult.toByteArray(Charsets.UTF_8)).apply { qos = 1 })
+                                                      } catch (e: Exception) {
+                                                          val err = "Ошибка сбора логов на автомате: ${e.message}"
+                                                          try {
+                                                              client?.publish("cofferno/$sn/logs", MqttMessage(err.toByteArray(Charsets.UTF_8)).apply { qos = 1 })
+                                                          } catch (_: Exception) {}
+                                                      }
                                                   }
                                               }
                                           }
@@ -1077,9 +1105,7 @@ jobs:
               private var selectedFilter = "ALL"
               private var currentSerial = ""
               private val packets = ConcurrentHashMap<String, TelemetryPacket>()
-              // ФИКС ОНЛАЙНА: учитываем локальное время получения пакета
               private val lastSeenMap = ConcurrentHashMap<String, Long>()
-              private val subscribedTopics = Collections.synchronizedSet(mutableSetOf<String>())
               private val handler = Handler(Looper.getMainLooper())
 
               private fun col(id: Int) = ContextCompat.getColor(this, id)
@@ -1136,7 +1162,7 @@ jobs:
                       if (id.isBlank()) { Toast.makeText(this, "Сначала выполните поиск", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
                       getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE).edit().putString("custom_serial", id).apply()
                       findViewById<EditText>(R.id.et_agent_serial).setText(id)
-                      addMachineAndSubscribe(id)
+                      addMachineAndSelect(id)
                       Toast.makeText(this, "Серийный номер: $id", Toast.LENGTH_LONG).show()
                   }
 
@@ -1150,7 +1176,7 @@ jobs:
                   findViewById<Button>(R.id.btn_add_machine).setOnClickListener {
                       val sn = findViewById<EditText>(R.id.et_new_serial).text.toString().trim().lowercase()
                       if (sn.isNotEmpty()) {
-                          addMachineAndSubscribe(sn)
+                          addMachineAndSelect(sn)
                           findViewById<EditText>(R.id.et_new_serial).text.clear()
                           Toast.makeText(this, "Автомат [$sn] добавлен", Toast.LENGTH_SHORT).show()
                       }
@@ -1166,7 +1192,7 @@ jobs:
 
                   findViewById<Button>(R.id.btn_remote_scan_logs).setOnClickListener {
                       if (currentSerial.isEmpty()) { Toast.makeText(this, "Выберите автомат из списка!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-                      tvRemoteL.text = "Запрос отправлен... Ожидание логов с автомата [$currentSerial]..."
+                      tvRemoteL.text = "⏳ Запрос логов отправлен на [$currentSerial]...\nОжидание ответа от автомата..."
                       tvRemoteL.scrollTo(0, 0)
                       cmd(currentSerial, "SCAN_LOGS")
                   }
@@ -1321,53 +1347,24 @@ jobs:
                   }
               }
 
-              private fun addMachineAndSubscribe(sn: String) {
+              private fun addMachineAndSelect(sn: String) {
+                  val s = sn.trim().lowercase()
                   val l = getSavedMachines().toMutableList()
-                  if (!l.contains(sn)) { l.add(sn); saveMachines(l) }
-                  currentSerial = sn
+                  if (!l.contains(s)) { l.add(s); saveMachines(l) }
+                  currentSerial = s
                   updateHeader(); renderChips(); renderSelector()
-                  subscribeToMachine(sn)
               }
 
               private fun removeMachine(sn: String) {
-                  unsubscribeFromMachine(sn)
-                  val l = getSavedMachines().toMutableList(); l.remove(sn); saveMachines(l)
-                  getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().remove("name_$sn").apply()
-                  packets.remove(sn)
-                  lastSeenMap.remove(sn)
-                  if (currentSerial == sn) currentSerial = getSavedMachines().firstOrNull() ?: ""
-                  if (selectedFilter == sn) selectedFilter = "ALL"
+                  val s = sn.trim().lowercase()
+                  val l = getSavedMachines().toMutableList(); l.remove(s); saveMachines(l)
+                  getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().remove("name_$s").apply()
+                  packets.remove(s)
+                  lastSeenMap.remove(s)
+                  if (currentSerial == s) currentSerial = getSavedMachines().firstOrNull() ?: ""
+                  if (selectedFilter == s) selectedFilter = "ALL"
                   updateHeader(); renderChips(); renderSelector(); renderSales(); renderCostsFromAll()
-                  Toast.makeText(this, "Автомат [$sn] удалён", Toast.LENGTH_SHORT).show()
-              }
-
-              private fun subscribeToMachine(sn: String) {
-                  Executors.newSingleThreadExecutor().execute {
-                      try {
-                          if (mqttClient?.isConnected == true) {
-                              val t1 = "cofferno/$sn/data"; val t2 = "cofferno/$sn/logs"
-                              if (!subscribedTopics.contains(t1)) { mqttClient!!.subscribe(t1, 1); subscribedTopics.add(t1) }
-                              if (!subscribedTopics.contains(t2)) { mqttClient!!.subscribe(t2, 1); subscribedTopics.add(t2) }
-                          }
-                      } catch (_: Exception) {}
-                  }
-              }
-
-              private fun unsubscribeFromMachine(sn: String) {
-                  Executors.newSingleThreadExecutor().execute {
-                      try {
-                          if (mqttClient?.isConnected == true) {
-                              val t1 = "cofferno/$sn/data"; val t2 = "cofferno/$sn/logs"
-                              try { mqttClient!!.unsubscribe(t1) } catch (_: Exception) {}
-                              try { mqttClient!!.unsubscribe(t2) } catch (_: Exception) {}
-                              subscribedTopics.remove(t1); subscribedTopics.remove(t2)
-                          }
-                      } catch (_: Exception) {}
-                  }
-              }
-
-              private fun subscribeToAllSaved() {
-                  getSavedMachines().forEach { subscribeToMachine(it) }
+                  Toast.makeText(this, "Автомат [$s] удалён", Toast.LENGTH_SHORT).show()
               }
 
               private fun reconnectMqtt() {
@@ -1375,32 +1372,33 @@ jobs:
                       while (true) {
                           try {
                               if (mqttClient?.isConnected != true) {
-                                  subscribedTopics.clear()
                                   mqttClient = MqttClient(broker, "Phone_${System.currentTimeMillis() % 100000}", MemoryPersistence())
                                   mqttClient!!.setCallback(object : MqttCallback {
-                                      override fun connectionLost(c: Throwable?) { isMqttConnected = false; subscribedTopics.clear() }
+                                      override fun connectionLost(c: Throwable?) { isMqttConnected = false }
                                       override fun messageArrived(topic: String?, message: MqttMessage?) {
                                           try {
                                               val t = topic ?: return
-                                              val payload = message?.toString() ?: return
+                                              val payload = String(message?.payload ?: ByteArray(0), Charsets.UTF_8)
                                               val parts = t.split("/")
                                               if (parts.size < 3) return
-                                              val sn = parts[1]
-
-                                              if (!getSavedMachines().contains(sn)) return
+                                              val sn = parts[1].trim().lowercase()
 
                                               if (t.endsWith("/logs")) {
                                                   runOnUiThread {
-                                                      if (sn == currentSerial) {
+                                                      if (currentSerial.isEmpty() || sn == currentSerial.lowercase()) {
                                                           val tvRemoteL = findViewById<TextView>(R.id.tv_remote_logs_output)
-                                                          tvRemoteL.text = payload; tvRemoteL.scrollTo(0, 0)
-                                                          Toast.makeText(this@MainActivity, "Логи получены с [$sn]!", Toast.LENGTH_SHORT).show()
+                                                          tvRemoteL.text = payload
+                                                          tvRemoteL.scrollTo(0, 0)
+                                                          if (!payload.startsWith("⏳")) {
+                                                              Toast.makeText(this@MainActivity, "Логи получены с [$sn]!", Toast.LENGTH_SHORT).show()
+                                                          }
                                                       }
                                                   }
                                               } else if (t.endsWith("/data")) {
                                                   val p = gson.fromJson(payload, TelemetryPacket::class.java)
-                                                  packets[p.serial] = p
-                                                  lastSeenMap[p.serial] = System.currentTimeMillis()
+                                                  val pSn = p.serial.trim().lowercase()
+                                                  packets[pSn] = p
+                                                  lastSeenMap[pSn] = System.currentTimeMillis()
                                                   runOnUiThread { renderSales(); renderCostsFromAll(); refreshDevUi() }
                                               }
                                           } catch (_: Exception) {}
@@ -1409,7 +1407,10 @@ jobs:
                                   })
                                   mqttClient!!.connect(MqttConnectOptions().apply { isAutomaticReconnect = true; connectionTimeout = 15; keepAliveInterval = 30 })
                                   isMqttConnected = true
-                                  subscribeToAllSaved()
+
+                                  // Подписка по маске на все автоматы
+                                  mqttClient!!.subscribe("cofferno/+/data", 1)
+                                  mqttClient!!.subscribe("cofferno/+/logs", 1)
                               }
                           } catch (_: Exception) { isMqttConnected = false }
                           Thread.sleep(5000)
@@ -1418,8 +1419,9 @@ jobs:
               }
 
               private fun cmd(sn: String, c: String) {
+                  val s = sn.trim().lowercase()
                   Executors.newSingleThreadExecutor().execute {
-                      try { if (sn.isNotEmpty() && mqttClient?.isConnected == true) mqttClient!!.publish("cofferno/$sn/cmd", MqttMessage(c.toByteArray()).apply { qos = 1 }) } catch (_: Exception) {}
+                      try { if (s.isNotEmpty() && mqttClient?.isConnected == true) mqttClient!!.publish("cofferno/$s/cmd", MqttMessage(c.toByteArray()).apply { qos = 1 }) } catch (_: Exception) {}
                   }
               }
 
@@ -1440,8 +1442,9 @@ jobs:
                       findViewById<TextView>(R.id.tv_summary_title).text = "Выручка: ВСЕ АВТОМАТЫ"
                       packets.filterKeys { machines.contains(it) }.values.toList()
                   } else {
-                      findViewById<TextView>(R.id.tv_summary_title).text = "Выручка: ${getName(selectedFilter)}"
-                      packets[selectedFilter]?.let { listOf(it) } ?: emptyList()
+                      val filter = selectedFilter.lowercase()
+                      findViewById<TextView>(R.id.tv_summary_title).text = "Выручка: ${getName(filter)}"
+                      packets[filter]?.let { listOf(it) } ?: emptyList()
                   }
 
                   if (pk.isEmpty() || pk.all { it.drinks.isEmpty() }) {
@@ -1499,10 +1502,10 @@ jobs:
               }
 
               private fun getCost(n: String) = getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).getInt("cost_$n", 0)
-              private fun getSavedMachines() = (getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).getString("machines_list", "") ?: "").split(",").filter { it.isNotBlank() }
-              private fun saveMachines(l: List<String>) { getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).edit().putString("machines_list", l.distinct().joinToString(",")).apply() }
-              private fun getName(s: String): String { val n = getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).getString("name_$s", "") ?: ""; return if (n.isNotBlank()) n else "Автомат $s" }
-              private fun saveName(s: String, n: String) { getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().putString("name_$s", n).apply() }
+              private fun getSavedMachines() = (getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).getString("machines_list", "") ?: "").split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+              private fun saveMachines(l: List<String>) { getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).edit().putString("machines_list", l.map { it.trim().lowercase() }.distinct().joinToString(",")).apply() }
+              private fun getName(s: String): String { val key = s.trim().lowercase(); val n = getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).getString("name_$key", "") ?: ""; return if (n.isNotBlank()) n else "Автомат $s" }
+              private fun saveName(s: String, n: String) { val key = s.trim().lowercase(); getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().putString("name_$key", n).apply() }
           }
           EOF
 
@@ -1536,7 +1539,7 @@ jobs:
           RESPONSE=$(curl -s -X POST \
             -F chat_id="$CHAT_ID" \
             -F document=@"$APK" \
-            -F caption="☕ Cofferno LV-307 v7.4.3 (Сборка $(date +'%d.%m %H:%M'))" \
+            -F caption="☕ Cofferno LV-307 v7.4.4 (Сборка $(date +'%d.%m %H:%M'))" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument")
           echo "$RESPONSE"
           if echo "$RESPONSE" | grep -q '"ok":true'; then echo "✅ Sent!"; else echo "::error::Telegram failed"; exit 1; fi
@@ -1555,13 +1558,13 @@ jobs:
                   lines = f.readlines()
               err = [l for l in lines if any(k in l for k in ["e: ", "FAILURE:", "What went wrong", "error:"])]
               log = "".join(err[-50:] if err else lines[-60:])
-          text = f"❌ Сборка Cofferno v7.4.3 завершилась ошибкой\n\n{log}"[:4000]
+          text = f"❌ Сборка Cofferno v7.4.4 завершилась ошибкой\n\n{log}"[:4000]
           token = os.environ.get("BOT_TOKEN", "")
           chat = os.environ.get("CHAT_ID", "")
           if token and chat:
               data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
               try:
-                  urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+                  urllib.request.urlopen(f"https://api.telegram.org/bot${token}/sendMessage", data=data)
               except Exception as e:
                   print(f"Telegram error: {e}")
           PY
