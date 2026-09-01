@@ -75,8 +75,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 76
-                  versionName "7.2.4"
+                  versionCode 77
+                  versionName "7.2.5"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -782,7 +782,7 @@ jobs:
 
               fun fullScan(context: Context): String {
                   val sb = StringBuilder()
-                  sb.append("=== SCAN 7.2.4 ===\n")
+                  sb.append("=== SCAN 7.2.5 ===\n")
                   val dev = findDeviceId(context)
                   sb.append("Device ID: ")
                   sb.append(if (dev.isBlank()) "NOT FOUND" else dev)
@@ -956,7 +956,7 @@ jobs:
                   return (androidId ?: "lv307_unit").trim().lowercase()
               }
 
-              private fun getDeviceId(): String {
+              private fun resolveDeviceId(): String {
                   val a = prefs().getString("levending_device_id", "") ?: ""
                   if (a.isNotBlank()) return a
                   return prefs().getString("custom_serial", "") ?: ""
@@ -1150,7 +1150,7 @@ jobs:
                           9.2,
                           "LeVending OK",
                           drinks,
-                          getDeviceId(),
+                          resolveDeviceId(),
                           p.getString("last_sale_name", "") ?: "",
                           p.getInt("last_sale_price", 0),
                           p.getLong("last_sale_at", 0L)
@@ -1779,7 +1779,7 @@ jobs:
           APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -n1)
           curl -F chat_id="${{ env.CHAT_ID }}" \
                -F document=@"$APK" \
-               -F caption="Cofferno 7.2.4 A+B DeviceID" \
+               -F caption="Cofferno 7.2.5 A+B DeviceID" \
                "https://api.telegram.org/bot${{ env.BOT_TOKEN }}/sendDocument"
 
       - name: Send compile errors to Telegram
@@ -1792,7 +1792,6 @@ jobs:
           if os.path.exists("build.log"):
               with open("build.log", "r", errors="ignore") as f:
                   all_lines = f.readlines()
-              # Ищем строки компилятора Kotlin / AAPT / Gradle
               filtered = [l for l in all_lines if any(k in l for k in ["e: ", "w: ", "FAILURE:", "What went wrong", "> Task :app:", "error:"])]
               if not filtered:
                   filtered = all_lines[-80:]
