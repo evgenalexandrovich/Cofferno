@@ -21,7 +21,7 @@ jobs:
           gradle-version: '8.5'
 
       # ============================================================
-      #  ГЕНЕРАЦИЯ ИСХОДНОГО КОДА
+      #  ГЕНЕРАЦИЯ ПРОЕКТА
       # ============================================================
       - name: Generate Project
         run: |
@@ -30,7 +30,6 @@ jobs:
           P=$B/java/com/coffee/telemetry
           mkdir -p $P $B/res/layout $B/res/values $B/res/menu $B/res/drawable
 
-          # ---------- Gradle config ----------
           cat > settings.gradle << 'EOF'
           pluginManagement {
               repositories { google(); mavenCentral(); gradlePluginPortal() }
@@ -88,7 +87,6 @@ jobs:
           }
           EOF
 
-          # ---------- AndroidManifest ----------
           cat > $B/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -129,7 +127,6 @@ jobs:
           </manifest>
           EOF
 
-          # ---------- Resources ----------
           cat > $B/res/values/strings.xml << 'EOF'
           <resources><string name="app_name">Cofferno LV-307</string></resources>
           EOF
@@ -200,7 +197,6 @@ jobs:
           </menu>
           EOF
 
-          # ---------- Layout ----------
           cat > $B/res/layout/activity_main.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -451,7 +447,7 @@ jobs:
           </androidx.constraintlayout.widget.ConstraintLayout>
           EOF
 
-          # ---------- Kotlin: Models ----------
+          # ---------- Models.kt ----------
           cat > $P/Models.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -484,7 +480,7 @@ jobs:
           )
           EOF
 
-          # ---------- Kotlin: LeVendingProbe ----------
+          # ---------- LeVendingProbe.kt ----------
           cat > $P/LeVendingProbe.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -625,7 +621,7 @@ jobs:
           }
           EOF
 
-          # ---------- Kotlin: AgentService ----------
+          # ---------- AgentService.kt ----------
           cat > $P/AgentService.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -828,7 +824,7 @@ jobs:
           }
           EOF
 
-          # ---------- Kotlin: BootReceiver ----------
+          # ---------- BootReceiver.kt ----------
           cat > $P/BootReceiver.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -852,7 +848,7 @@ jobs:
           }
           EOF
 
-          # ---------- Kotlin: MainActivity ----------
+          # ---------- MainActivity.kt ----------
           cat > $P/MainActivity.kt << 'EOF'
           package com.coffee.telemetry
 
@@ -1167,7 +1163,17 @@ jobs:
           exit ${PIPESTATUS[0]}
 
       # ============================================================
-      #  ОТПРАВКА APK В TELEGRAM  (исправленная версия)
+      #  СОХРАНЕНИЕ APK В GITHUB ARTIFACTS (всегда доступно на сайте)
+      # ============================================================
+      - name: Upload APK to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cofferno-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      # ============================================================
+      #  ОТПРАВКА APK В TELEGRAM
       # ============================================================
       - name: Send APK to Telegram
         if: success()
@@ -1175,42 +1181,28 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
-          set -ex
-
-          # 1. Явный путь к APK (AGP 8.2.2 всегда кладёт сюда)
+          set -e
           APK="app/build/outputs/apk/debug/app-debug.apk"
 
-          # 2. Проверяем, что файл существует и не пустой
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: APK not found at $APK"
-            echo "Searching for any .apk files..."
-            find . -name "*.apk" -type f 2>/dev/null || true
-            exit 1
-          fi
-
-          ls -lh "$APK"
-
-          # 3. Проверяем, что секреты заданы
           if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
-            echo "ERROR: BOT_TOKEN or CHAT_ID secret is not set!"
-            echo "Go to: Settings → Secrets and variables → Actions → New repository secret"
-            exit 1
+            echo "::warning::BOT_TOKEN or CHAT_ID secrets are not set! Skipping Telegram upload."
+            echo "You can download the APK from the GitHub Actions Artifacts section above."
+            exit 0
           fi
 
-          # 4. Отправляем с -f (fail on HTTP error) и выводим ответ Telegram
-          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -f \
+          echo "Sending APK to Telegram..."
+          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
             -F chat_id="$CHAT_ID" \
             -F document=@"$APK" \
-            -F caption="☕ Cofferno v7.2.6 build $(date +%H:%M)" \
-            "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" || true)
+            -F caption="☕ Cofferno LV-307 v7.2.6 (build $(date +'%d.%m %H:%M'))" \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument")
 
-          echo "Telegram response: $RESPONSE"
+          echo "Telegram Response: $RESPONSE"
 
-          # 5. Проверяем, что Telegram ответил ok:true
           if echo "$RESPONSE" | grep -q '"ok":true'; then
-            echo "APK sent successfully!"
+            echo "✅ Successfully sent to Telegram!"
           else
-            echo "WARNING: Telegram may have rejected the file."
+            echo "::error::Telegram rejected document upload."
             exit 1
           fi
 
@@ -1242,6 +1234,4 @@ jobs:
                   urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
               except Exception as e:
                   print(f"Telegram error: {e}")
-          else:
-              print("BOT_TOKEN or CHAT_ID not set")
           PY
