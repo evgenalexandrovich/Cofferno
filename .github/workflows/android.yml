@@ -64,8 +64,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 88
-                  versionName "7.4.4"
+                  versionCode 89
+                  versionName "7.4.5"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -730,70 +730,94 @@ jobs:
 
               fun fullScan(context: Context): String {
                   val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                  val sb = StringBuilder("=== ДИАГНОСТИКА COFFERNO [$timeStr] ===\n")
+                  val sb = StringBuilder("=== COFFERNO ДИАГНОСТИКА [$timeStr] ===\n")
                   val dev = findDeviceId(context)
-                  sb.append("Device ID: ").append(if (dev.isBlank()) "НЕ НАЙДЕН" else dev).append("\n\n")
+                  sb.append("ID автомата: ").append(if (dev.isBlank()) "НЕ ОПРЕДЕЛЕН" else dev).append("\n\n")
 
                   try {
                       val pkgs = context.packageManager.getInstalledPackages(0)
-                      sb.append("--- ПРИЛОЖЕНИЯ АВТОМАТА ---\n")
+                      sb.append("--- ПРИЛОЖЕНИЯ ---\n")
                       for (p in pkgs) {
                           val n = p.packageName.lowercase()
-                          if (n.contains("le.") || n.contains("vending") || n.contains("coffee") || n.contains("ylpush") || n.contains("zj"))
+                          if (n.contains("le.vm") || n.contains("vending") || n.contains("coffee") || n.contains("ylpush") || n.contains("zj"))
                               sb.append(" • ").append(p.packageName).append("\n")
                       }
                   } catch (e: Exception) { sb.append("Пакеты: ").append(e.message).append("\n") }
 
-                  sb.append("\n--- ФАЙЛЫ В ПАМЯТИ ---\n")
+                  // FALLBACK: ЧТЕНИЕ ЛОГОВ ИЗ ФАЙЛОВ LEVENDING
+                  sb.append("\n--- ПОИСК ЛОГОВ НА ДИСКЕ ---\n")
                   val root = Environment.getExternalStorageDirectory()
-                  for (rel in arrayOf("Download", "vm_log", "levending",
-                      "Android/data/com.le.vmcoffeestandard/files",
-                      "Android/data/com.levending.ylpush/files")) {
-                      val f = File(root, rel)
-                      if (f.exists()) {
-                          sb.append("📁 ").append(f.absolutePath).append("\n")
-                          f.listFiles()?.take(20)?.forEach { c ->
-                              sb.append("   - ").append(c.name).append(" (").append(c.length() / 1024).append(" KB)\n")
+                  val logDirs = arrayOf(
+                      File(root, "vm_log"),
+                      File(root, "levending"),
+                      File(root, "Download"),
+                      File("/sdcard/vm_log"),
+                      File("/sdcard/Download"),
+                      File(root, "Android/data/com.le.vmcoffeestandard/files")
+                  )
+
+                  val foundFiles = mutableListOf<File>()
+                  for (dir in logDirs) {
+                      if (dir.exists() && dir.isDirectory) {
+                          dir.listFiles()?.forEach { file ->
+                              if (file.isFile && (file.name.endsWith(".txt") || file.name.endsWith(".log") || file.name.contains("log", ignoreCase = true))) {
+                                  foundFiles.add(file)
+                              }
                           }
                       }
                   }
 
-                  sb.append("\n--- ЛОГИ LOGCAT (ПОСЛЕДНИЕ СОБЫТИЯ) ---\n")
-                  var saleHits = 0; var shown = 0
+                  // Сортируем по дате изменения (сначала новые)
+                  foundFiles.sortByDescending { it.lastModified() }
+                  val newestLogFile = foundFiles.firstOrNull()
 
+                  if (newestLogFile != null) {
+                      sb.append("📄 Извлечено из файла: ${newestLogFile.name} (${newestLogFile.length() / 1024} KB)\n\n")
+                      try {
+                          val lines = newestLogFile.readLines()
+                          val tail = lines.takeLast(45).joinToString("\n")
+                          sb.append(tail).append("\n")
+                      } catch (e: Exception) {
+                          sb.append("Не удалось прочитать файл лога: ").append(e.message).append("\n")
+                      }
+                  } else {
+                      sb.append("Файловые журналы .txt/.log на SD-карте не обнаружены.\n")
+                  }
+
+                  sb.append("\n--- ЖУРНАЛ СИСТЕМЫ LOGCAT ---\n")
                   var reader: BufferedReader? = null
                   try {
-                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "2000", "-v", "time"))
+                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "1000"))
                       reader = BufferedReader(InputStreamReader(p.inputStream))
                   } catch (_: Exception) {
                       try {
-                          val pRoot = Runtime.getRuntime().exec(arrayOf("su", "-c", "logcat -d -t 2000 -v time"))
+                          val pRoot = Runtime.getRuntime().exec(arrayOf("su", "-c", "logcat -d -t 1000"))
                           reader = BufferedReader(InputStreamReader(pRoot.inputStream))
                       } catch (_: Exception) {}
                   }
 
                   if (reader != null) {
                       try {
+                          var shown = 0
                           while (true) {
                               val line = reader.readLine() ?: break
                               if (isSystemNoise(line)) continue
 
                               val interesting = isSaleMarker(line) || findDeviceIdFromLogLine(line) != null ||
-                                  line.contains("ZJHTTP", true) || line.contains("ylapi", true) ||
-                                  extractDrinkName(line) != null || extractPrice(line) != null || extractOrderId(line) != null
+                                  line.contains("zjhttp", true) || line.contains("ylapi", true) ||
+                                  extractDrinkName(line) != null || extractPrice(line) != null
 
                               if (interesting) {
-                                  if (isSaleMarker(line)) saleHits++
-                                  sb.append(if (line.length > 350) line.substring(0, 350) + "..." else line).append("\n")
-                                  if (++shown >= 90) break
+                                  sb.append(if (line.length > 200) line.substring(0, 200) + "..." else line).append("\n")
+                                  if (++shown >= 50) break
                               }
                           }
-                      } catch (e: Exception) { sb.append("Чтение логов: ").append(e.message).append("\n") }
+                          if (shown == 0) sb.append("Нет активных событий во временном буфере logcat.\n")
+                      } catch (e: Exception) { sb.append("Ошибка разбора logcat: ").append(e.message).append("\n") }
                   } else {
-                      sb.append("Logcat недоступен в данной сессии.\n")
+                      sb.append("Logcat недоступен (требуются Root права или ADB).\n")
                   }
 
-                  sb.append("\nНайдено событий приготовления: ").append(saleHits)
                   sb.append("\n=== КОНЕЦ ОТЧЕТА ===")
                   return sb.toString()
               }
@@ -820,6 +844,7 @@ jobs:
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
           import java.io.BufferedReader
           import java.io.InputStreamReader
+          import java.util.UUID
           import java.util.concurrent.Executors
           import java.util.concurrent.ScheduledExecutorService
           import java.util.concurrent.TimeUnit
@@ -876,10 +901,11 @@ jobs:
 
               private fun getMachineSerial(): String {
                   val c = prefs().getString("custom_serial", "") ?: ""
-                  if (c.isNotBlank()) return c.trim().lowercase()
+                  if (c.isNotBlank()) return c.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
                   val d = prefs().getString("levending_device_id", "") ?: ""
-                  if (d.isNotBlank()) return d.trim().lowercase()
-                  return (Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "lv307_unit").trim().lowercase()
+                  if (d.isNotBlank()) return d.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
+                  return (Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "lv307_unit")
+                      .trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
               }
 
               private fun resolveDeviceId(): String {
@@ -929,9 +955,10 @@ jobs:
 
                               LeVendingProbe.findDeviceIdFromLogLine(line)?.let { dev ->
                                   val p = prefs()
-                                  if (p.getString("levending_device_id", "") != dev) {
-                                      val ed = p.edit().putString("levending_device_id", dev)
-                                      if (p.getString("custom_serial", "").isNullOrBlank()) ed.putString("custom_serial", dev)
+                                  val cleanDev = dev.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
+                                  if (p.getString("levending_device_id", "") != cleanDev) {
+                                      val ed = p.edit().putString("levending_device_id", cleanDev)
+                                      if (p.getString("custom_serial", "").isNullOrBlank()) ed.putString("custom_serial", cleanDev)
                                       ed.apply()
                                   }
                               }
@@ -969,11 +996,14 @@ jobs:
                       while (wakeLock?.isHeld == true) {
                           try {
                               if (client?.isConnected != true) {
+                                  try { client?.disconnect(); client?.close() } catch (_: Exception) {}
                                   val sn = getMachineSerial()
-                                  client = MqttClient(broker, "Host_${sn}_${System.currentTimeMillis() % 1000}", MemoryPersistence())
+                                  // Уникальный ClientID для устранения конфликтов подключения к MQTT
+                                  val clientId = "Ag_" + UUID.randomUUID().toString().replace("-", "").take(15)
+                                  client = MqttClient(broker, clientId, MemoryPersistence())
                                   val opt = MqttConnectOptions().apply { isAutomaticReconnect = true; connectionTimeout = 15; keepAliveInterval = 30 }
                                   client!!.connect(opt)
-                                  client!!.subscribe("cofferno/$sn/cmd", 1)
+                                  client!!.subscribe("cofferno/$sn/cmd", 0)
                                   client!!.setCallback(object : MqttCallback {
                                       override fun connectionLost(c: Throwable?) {}
                                       override fun messageArrived(t: String?, m: MqttMessage?) {
@@ -991,19 +1021,25 @@ jobs:
                                               "REQUEST_UPDATE" -> sendHeartbeat()
                                               "REBOOT_MACHINE" -> try { Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot")) } catch (_: Exception) {}
                                               "SCAN_LOGS" -> {
-                                                  Executors.newSingleThreadExecutor().execute {
+                                                  exec.execute {
                                                       try {
-                                                          // 1. Быстрый ответ (ACK)
-                                                          val ackMsg = "⏳ Автомат [$sn] принял команду. Идет сбор логов, пожалуйста подождите..."
-                                                          client?.publish("cofferno/$sn/logs", MqttMessage(ackMsg.toByteArray(Charsets.UTF_8)).apply { qos = 1 })
+                                                          // 1. Быстрый ответ (ACK) с минимальным QoS
+                                                          val ackMsg = "⏳ Автомат [$sn]: собираю и упаковываю логи, подождите..."
+                                                          client?.publish("cofferno/$sn/logs", MqttMessage(ackMsg.toByteArray(Charsets.UTF_8)).apply { qos = 0 })
 
-                                                          // 2. Полный сбор и отправка логов
-                                                          val scanResult = LeVendingProbe.fullScan(this@AgentService)
-                                                          client?.publish("cofferno/$sn/logs", MqttMessage(scanResult.toByteArray(Charsets.UTF_8)).apply { qos = 1 })
-                                                      } catch (e: Exception) {
-                                                          val err = "Ошибка сбора логов на автомате: ${e.message}"
+                                                          // 2. Полный сбор логов
+                                                          val rawLogs = LeVendingProbe.fullScan(this@AgentService)
+                                                          
+                                                          // Сжимаем данные до 3800 символов, чтобы брокер не обрубил соединение
+                                                          val capped = if (rawLogs.length > 3800) {
+                                                              rawLogs.substring(0, 3700) + "\n\n[Внимание! Часть логов обрезана для бесперебойной передачи]"
+                                                          } else rawLogs
+
+                                                          client?.publish("cofferno/$sn/logs", MqttMessage(capped.toByteArray(Charsets.UTF_8)).apply { qos = 0 })
+                                                      } catch (ex: Exception) {
+                                                          val err = "Ошибка сбора логов на автомате: ${ex.message}"
                                                           try {
-                                                              client?.publish("cofferno/$sn/logs", MqttMessage(err.toByteArray(Charsets.UTF_8)).apply { qos = 1 })
+                                                              client?.publish("cofferno/$sn/logs", MqttMessage(err.toByteArray(Charsets.UTF_8)).apply { qos = 0 })
                                                           } catch (_: Exception) {}
                                                       }
                                                   }
@@ -1014,7 +1050,7 @@ jobs:
                                   })
                                   sched?.shutdownNow()
                                   sched = Executors.newSingleThreadScheduledExecutor()
-                                  sched!!.scheduleAtFixedRate(Runnable { sendHeartbeat() }, 0, 3, TimeUnit.SECONDS)
+                                  sched!!.scheduleAtFixedRate(Runnable { sendHeartbeat() }, 0, 4, TimeUnit.SECONDS)
                               }
                           } catch (_: Exception) {}
                           Thread.sleep(5000)
@@ -1030,13 +1066,13 @@ jobs:
                       val pkt = TelemetryPacket(sn, 93.4, 9.2, "В норме", loadDrinks(),
                           resolveDeviceId(), p.getString("last_sale_name", "") ?: "",
                           p.getInt("last_sale_price", 0), p.getLong("last_sale_at", 0L))
-                      client!!.publish("cofferno/$sn/data", MqttMessage(gson.toJson(pkt).toByteArray()).apply { qos = 1; isRetained = true })
+                      client!!.publish("cofferno/$sn/data", MqttMessage(gson.toJson(pkt).toByteArray(Charsets.UTF_8)).apply { qos = 0; isRetained = true })
                   } catch (_: Exception) {}
               }
 
               override fun onDestroy() {
                   sched?.shutdownNow()
-                  try { client?.disconnect() } catch (_: Exception) {}
+                  try { client?.disconnect(); client?.close() } catch (_: Exception) {}
                   wakeLock?.release()
                   super.onDestroy()
               }
@@ -1192,7 +1228,7 @@ jobs:
 
                   findViewById<Button>(R.id.btn_remote_scan_logs).setOnClickListener {
                       if (currentSerial.isEmpty()) { Toast.makeText(this, "Выберите автомат из списка!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-                      tvRemoteL.text = "⏳ Запрос логов отправлен на [$currentSerial]...\nОжидание ответа от автомата..."
+                      tvRemoteL.text = "⏳ Запрос отправлен...\nОжидаем формирования отчета на автомате [$currentSerial]..."
                       tvRemoteL.scrollTo(0, 0)
                       cmd(currentSerial, "SCAN_LOGS")
                   }
@@ -1348,7 +1384,7 @@ jobs:
               }
 
               private fun addMachineAndSelect(sn: String) {
-                  val s = sn.trim().lowercase()
+                  val s = sn.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
                   val l = getSavedMachines().toMutableList()
                   if (!l.contains(s)) { l.add(s); saveMachines(l) }
                   currentSerial = s
@@ -1356,7 +1392,7 @@ jobs:
               }
 
               private fun removeMachine(sn: String) {
-                  val s = sn.trim().lowercase()
+                  val s = sn.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
                   val l = getSavedMachines().toMutableList(); l.remove(s); saveMachines(l)
                   getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().remove("name_$s").apply()
                   packets.remove(s)
@@ -1372,7 +1408,10 @@ jobs:
                       while (true) {
                           try {
                               if (mqttClient?.isConnected != true) {
-                                  mqttClient = MqttClient(broker, "Phone_${System.currentTimeMillis() % 100000}", MemoryPersistence())
+                                  try { mqttClient?.disconnect(); mqttClient?.close() } catch (_: Exception) {}
+                                  // Генерация уникального Client ID для смартфона
+                                  val phoneClientId = "Ph_" + UUID.randomUUID().toString().replace("-", "").take(15)
+                                  mqttClient = MqttClient(broker, phoneClientId, MemoryPersistence())
                                   mqttClient!!.setCallback(object : MqttCallback {
                                       override fun connectionLost(c: Throwable?) { isMqttConnected = false }
                                       override fun messageArrived(topic: String?, message: MqttMessage?) {
@@ -1390,7 +1429,7 @@ jobs:
                                                           tvRemoteL.text = payload
                                                           tvRemoteL.scrollTo(0, 0)
                                                           if (!payload.startsWith("⏳")) {
-                                                              Toast.makeText(this@MainActivity, "Логи получены с [$sn]!", Toast.LENGTH_SHORT).show()
+                                                              Toast.makeText(this@MainActivity, "Логи обновлены!", Toast.LENGTH_SHORT).show()
                                                           }
                                                       }
                                                   }
@@ -1408,9 +1447,9 @@ jobs:
                                   mqttClient!!.connect(MqttConnectOptions().apply { isAutomaticReconnect = true; connectionTimeout = 15; keepAliveInterval = 30 })
                                   isMqttConnected = true
 
-                                  // Подписка по маске на все автоматы
-                                  mqttClient!!.subscribe("cofferno/+/data", 1)
-                                  mqttClient!!.subscribe("cofferno/+/logs", 1)
+                                  // Подписка по маске на все возможные входящие данные
+                                  mqttClient!!.subscribe("cofferno/+/data", 0)
+                                  mqttClient!!.subscribe("cofferno/+/logs", 0)
                               }
                           } catch (_: Exception) { isMqttConnected = false }
                           Thread.sleep(5000)
@@ -1419,9 +1458,9 @@ jobs:
               }
 
               private fun cmd(sn: String, c: String) {
-                  val s = sn.trim().lowercase()
+                  val s = sn.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
                   Executors.newSingleThreadExecutor().execute {
-                      try { if (s.isNotEmpty() && mqttClient?.isConnected == true) mqttClient!!.publish("cofferno/$s/cmd", MqttMessage(c.toByteArray()).apply { qos = 1 }) } catch (_: Exception) {}
+                      try { if (s.isNotEmpty() && mqttClient?.isConnected == true) mqttClient!!.publish("cofferno/$s/cmd", MqttMessage(c.toByteArray(Charsets.UTF_8)).apply { qos = 0 }) } catch (_: Exception) {}
                   }
               }
 
@@ -1502,10 +1541,10 @@ jobs:
               }
 
               private fun getCost(n: String) = getSharedPreferences("cofferno_costs", Context.MODE_PRIVATE).getInt("cost_$n", 0)
-              private fun getSavedMachines() = (getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).getString("machines_list", "") ?: "").split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
-              private fun saveMachines(l: List<String>) { getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).edit().putString("machines_list", l.map { it.trim().lowercase() }.distinct().joinToString(",")).apply() }
-              private fun getName(s: String): String { val key = s.trim().lowercase(); val n = getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).getString("name_$key", "") ?: ""; return if (n.isNotBlank()) n else "Автомат $s" }
-              private fun saveName(s: String, n: String) { val key = s.trim().lowercase(); getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().putString("name_$key", n).apply() }
+              private fun getSavedMachines() = (getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).getString("machines_list", "") ?: "").split(",").map { it.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "") }.filter { it.isNotBlank() }
+              private fun saveMachines(l: List<String>) { getSharedPreferences("cofferno_app", Context.MODE_PRIVATE).edit().putString("machines_list", l.map { it.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "") }.distinct().joinToString(",")).apply() }
+              private fun getName(s: String): String { val key = s.trim().lowercase().replace(Regex("[^a-z0-9_-]"), ""); val n = getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).getString("name_$key", "") ?: ""; return if (n.isNotBlank()) n else "Автомат $s" }
+              private fun saveName(s: String, n: String) { val key = s.trim().lowercase().replace(Regex("[^a-z0-9_-]"), ""); getSharedPreferences("cofferno_names", Context.MODE_PRIVATE).edit().putString("name_$key", n).apply() }
           }
           EOF
 
@@ -1539,7 +1578,7 @@ jobs:
           RESPONSE=$(curl -s -X POST \
             -F chat_id="$CHAT_ID" \
             -F document=@"$APK" \
-            -F caption="☕ Cofferno LV-307 v7.4.4 (Сборка $(date +'%d.%m %H:%M'))" \
+            -F caption="☕ Cofferno LV-307 v7.4.5 (Сборка $(date +'%d.%m %H:%M'))" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument")
           echo "$RESPONSE"
           if echo "$RESPONSE" | grep -q '"ok":true'; then echo "✅ Sent!"; else echo "::error::Telegram failed"; exit 1; fi
@@ -1558,13 +1597,13 @@ jobs:
                   lines = f.readlines()
               err = [l for l in lines if any(k in l for k in ["e: ", "FAILURE:", "What went wrong", "error:"])]
               log = "".join(err[-50:] if err else lines[-60:])
-          text = f"❌ Сборка Cofferno v7.4.4 завершилась ошибкой\n\n{log}"[:4000]
+          text = f"❌ Сборка Cofferno v7.4.5 завершилась ошибкой\n\n{log}"[:4000]
           token = os.environ.get("BOT_TOKEN", "")
           chat = os.environ.get("CHAT_ID", "")
           if token and chat:
               data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
               try:
-                  urllib.request.urlopen(f"https://api.telegram.org/bot${token}/sendMessage", data=data)
+                  urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
               except Exception as e:
                   print(f"Telegram error: {e}")
           PY
