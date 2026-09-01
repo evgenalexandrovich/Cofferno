@@ -67,8 +67,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 79
-                  versionName "7.2.7"
+                  versionCode 80
+                  versionName "7.2.8"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -493,6 +493,7 @@ jobs:
           package com.coffee.telemetry
 
           import android.content.Context
+          import android.net.Uri
           import android.os.Environment
           import java.io.BufferedReader
           import java.io.File
@@ -507,23 +508,32 @@ jobs:
                   Pattern.compile("device_id[=:]([0-9]{6,18})", Pattern.CASE_INSENSITIVE)
               )
 
-              private val pricePattern = Pattern.compile(
-                  "(?i)(?:price|amount|money|pay|sum|total|цена|стоимость)[^0-9]{0,12}([0-9]{2,5})"
+              private val drinkPatterns = listOf(
+                  Pattern.compile("""(?i)(?:double\s*espresso|doppio|двойн\w*\s*эспрессо)""") to "Двойной эспрессо",
+                  Pattern.compile("""(?i)(?<![a-zа-я])espresso(?![a-zа-я])""") to "Эспрессо",
+                  Pattern.compile("""(?i)(?<![a-zа-я])эспрессо(?![a-zа-я])""") to "Эспрессо",
+                  Pattern.compile("""(?i)flat\s*white|флэт\s*уайт|флет\s*уайт""") to "Флэт Уайт",
+                  Pattern.compile("""(?i)(?<![a-zа-я])cappuccino(?![a-zа-я])|капуч+ино""") to "Капучино",
+                  Pattern.compile("""(?i)(?<![a-zа-я])americano(?![a-zа-я])|американо""") to "Американо",
+                  Pattern.compile("""(?i)(?<![a-zа-я])macchiato(?![a-zа-я])|макиато|маккиато""") to "Макиато",
+                  Pattern.compile("""(?i)(?<![a-zа-я])latte(?![a-zа-я])|(?<![a-zа-я])латте(?![a-zа-я])""") to "Латте",
+                  Pattern.compile("""(?i)(?<![a-zа-я])mocha(?![a-zа-я])|мокка""") to "Моккачино",
+                  Pattern.compile("""(?i)hot\s*chocolate|шоколад""") to "Горячий шоколад",
+                  Pattern.compile("""(?i)(?<![a-zа-я])cocoa(?![a-zа-я])|(?<![a-zа-я])какао(?![a-zа-я])""") to "Какао",
+                  Pattern.compile("""(?i)ristretto|ристретт?о""") to "Ристретто",
+                  Pattern.compile("""(?i)(?<![a-zа-я])lungo(?![a-zа-я])|(?<![a-zа-я])лунго(?![a-zа-я])""") to "Лунго",
+                  Pattern.compile("""(?i)(?<![a-zа-я])tea(?![a-zа-я])|(?<![a-zа-я])чай(?![a-zа-я])""") to "Чай"
               )
 
-              private val drinkMap = mapOf(
-                  "Espresso" to "Эспрессо",
-                  "Americano" to "Американо",
-                  "Cappuccino" to "Капучино",
-                  "Latte" to "Латте",
-                  "Macchiato" to "Макиато",
-                  "Flat White" to "Флэт Уайт",
-                  "Mocha" to "Моккачино",
-                  "Chocolate" to "Горячий шоколад",
-                  "Cocoa" to "Какао",
-                  "Tea" to "Чай",
-                  "Ristretto" to "Ристретто",
-                  "Lungo" to "Лунго"
+              private val pricePatterns = arrayOf(
+                  Pattern.compile("""(?i)(?:price|amount|money|pay|sum|total|cost|fee|цена|сумма|стоимость)[=:\s]+([0-9]{2,5})"""),
+                  Pattern.compile("""(?i)["'](?:price|amount|payAmount|goodsPrice|salePrice)["']\s*:\s*([0-9]{2,5})"""),
+                  Pattern.compile("""(?i)(?:price|amount|payAmount|goodsPrice)=([0-9]{2,5})""")
+              )
+
+              private val goodsNamePatterns = arrayOf(
+                  Pattern.compile("""(?i)(?:goodsName|productName|drinkName|drink|goods|product|title|name)=([^&\s]{2,40})"""),
+                  Pattern.compile("""(?i)["'](?:goodsName|productName|drinkName|name)["']\s*:\s*["']([^"']{2,40})["']""")
               )
 
               fun findDeviceIdFromLogLine(line: String): String? {
@@ -559,40 +569,59 @@ jobs:
                   return null
               }
 
+              fun isApiSaleSuccess(line: String): Boolean {
+                  val l = line.lowercase()
+                  return l.contains("vmsalesuccess") ||
+                      l.contains("sendoutgoodssuccess") ||
+                      (l.contains("ylapi.levending") && l.contains("sale") && l.contains("success"))
+              }
+
               fun isPrimarySaleMarker(line: String): Boolean {
+                  if (isApiSaleSuccess(line)) return true
                   if (!line.contains("MakeDrinkVideoActivity")) return false
                   return line.contains("START") || line.contains("Displayed") || line.contains("cmp=")
               }
 
               fun isDropCupMarker(line: String): Boolean =
-                  line.contains("AloneDropCupActivity") && line.contains("Displayed")
-
-              fun isSaleMarker(line: String): Boolean =
-                  line.contains("MakeDrinkVideoActivity") ||
-                  line.contains("AloneDropCupActivity") ||
-                  line.contains("MakeDrinkPresenter") ||
-                  line.contains("PayActivity")
+                  line.contains("AloneDropCupActivity") && (line.contains("Displayed") || line.contains("START"))
 
               fun extractDrinkName(line: String): String? {
-                  for ((en, ru) in drinkMap) {
-                      if (line.contains(en, ignoreCase = true) || line.contains(ru, ignoreCase = true)) {
-                          return ru
+                  for (p in goodsNamePatterns) {
+                      val m = p.matcher(line)
+                      if (m.find()) {
+                          val raw = Uri.decode(m.group(1) ?: continue).replace("+", " ").trim()
+                          if (raw.isNotBlank() && raw.length in 2..40) {
+                              for ((pat, ru) in drinkPatterns) {
+                                  if (pat.matcher(raw).find()) return ru
+                              }
+                              return raw
+                          }
                       }
+                  }
+                  for ((pat, ru) in drinkPatterns) {
+                      if (pat.matcher(line).find()) return ru
                   }
                   return null
               }
 
               fun extractPrice(line: String): Int? {
-                  val m = pricePattern.matcher(line)
-                  if (m.find()) {
-                      val v = m.group(1)?.toIntOrNull() ?: return null
-                      if (v in 10..2000) return v
+                  for (p in pricePatterns) {
+                      val m = p.matcher(line)
+                      if (m.find()) {
+                          val v = m.group(1)?.toIntOrNull() ?: continue
+                          if (v in 10..2000) return v
+                      }
                   }
                   return null
               }
 
+              fun extractOrderId(line: String): String? {
+                  val m = Pattern.compile("""(?i)orderid=([0-9]{6,32})""").matcher(line)
+                  return if (m.find()) m.group(1) else null
+              }
+
               fun fullScan(context: Context): String {
-                  val sb = StringBuilder("=== ДИАГНОСТИКА COFFERNO 7.2.7 ===\n")
+                  val sb = StringBuilder("=== ДИАГНОСТИКА COFFERNO 7.2.8 ===\n")
                   val dev = findDeviceId(context)
                   sb.append("ID устройства: ").append(if (dev.isBlank()) "НЕ НАЙДЕН" else dev).append("\n\n")
                   try {
@@ -622,15 +651,15 @@ jobs:
                   sb.append("\n--- ЛОГИ LOGCAT ---\n")
                   var saleHits = 0; var shown = 0
                   try {
-                      val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "500"))
+                      val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "500", "-b", "all"))
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
                       while (true) {
                           val line = reader.readLine() ?: break
                           if (isSaleMarker(line) || findDeviceIdFromLogLine(line) != null ||
                               line.contains("ylapi.levending") || line.contains("vmcoffee", ignoreCase = true) ||
-                              extractDrinkName(line) != null || extractPrice(line) != null) {
+                              extractDrinkName(line) != null || extractPrice(line) != null || extractOrderId(line) != null) {
                               if (isSaleMarker(line)) saleHits++
-                              sb.append(if (line.length > 200) line.substring(0, 200) else line).append("\n")
+                              sb.append(if (line.length > 600) line.substring(0, 600) + "..." else line).append("\n")
                               if (++shown >= 90) break
                           }
                       }
@@ -679,6 +708,7 @@ jobs:
               private var pendingName = ""
               private var pendingPrice = 0
               private var pendingMetaTs = 0L
+              private var lastOrderId = ""
 
               override fun onBind(intent: Intent?): IBinder? = null
 
@@ -742,7 +772,8 @@ jobs:
                       DrinkItem(3, "Американо", 0, 130, 30),
                       DrinkItem(4, "Флэт Уайт", 0, 190, 55),
                       DrinkItem(5, "Горячий шоколад", 0, 160, 45),
-                      DrinkItem(6, "Напиток (LeVending)", 0, 150, 40)
+                      DrinkItem(6, "Двойной эспрессо", 0, 180, 70),
+                      DrinkItem(7, "Напиток (LeVending)", 0, 150, 40)
                   )
               }
 
@@ -752,12 +783,18 @@ jobs:
 
               private fun registerDrinkSale(name: String, price: Int) {
                   val drinks = loadDrinks()
-                  val fp = if (price > 0) price else 150
                   val found = drinks.firstOrNull { it.name.equals(name, ignoreCase = true) }
-                  if (found != null) { found.count++; if (price > 0) found.price = price }
-                  else drinks.add(DrinkItem(drinks.size, name, 1, fp, 40))
+                  // Если пришла цена <= 0, берем цену из кэша напитка (если он есть). Иначе ставим 0.
+                  val finalPrice = if (price > 0) price else found?.price?.takeIf { it > 0 } ?: 0
+                  
+                  if (found != null) { 
+                      found.count++
+                      if (finalPrice > 0) found.price = finalPrice 
+                  } else { 
+                      drinks.add(DrinkItem(drinks.size, name, 1, finalPrice, 40)) 
+                  }
                   saveDrinks(drinks)
-                  prefs().edit().putString("last_sale_name", name).putInt("last_sale_price", fp)
+                  prefs().edit().putString("last_sale_name", name).putInt("last_sale_price", finalPrice)
                       .putLong("last_sale_at", System.currentTimeMillis()).apply()
                   sendHeartbeat()
               }
@@ -767,9 +804,11 @@ jobs:
                       try {
                           Runtime.getRuntime().exec(arrayOf("logcat", "-c"))
                           val r = BufferedReader(InputStreamReader(
-                              Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time")).inputStream))
+                              Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time", "-b", "all")).inputStream))
                           while (wakeLock?.isHeld == true) {
                               val line = r.readLine() ?: break
+                              val now = System.currentTimeMillis()
+
                               LeVendingProbe.findDeviceIdFromLogLine(line)?.let { dev ->
                                   val p = prefs()
                                   if (p.getString("levending_device_id", "") != dev) {
@@ -778,17 +817,28 @@ jobs:
                                       ed.apply()
                                   }
                               }
-                              LeVendingProbe.extractDrinkName(line)?.let { pendingName = it; pendingMetaTs = System.currentTimeMillis() }
-                              LeVendingProbe.extractPrice(line)?.let { pendingPrice = it; pendingMetaTs = System.currentTimeMillis() }
-                              if (LeVendingProbe.isPrimarySaleMarker(line) || LeVendingProbe.isDropCupMarker(line)) {
-                                  val now = System.currentTimeMillis()
-                                  if (now - lastSaleTs > 45000L) {
+
+                              if (line.contains("ZJHTTP", true) || line.contains("ylapi", true) || 
+                                  line.contains("MakeDrink", true) || line.contains("AloneDropCup", true)) {
+                                  LeVendingProbe.extractDrinkName(line)?.let { pendingName = it; pendingMetaTs = now }
+                                  LeVendingProbe.extractPrice(line)?.let { pendingPrice = it; pendingMetaTs = now }
+                              }
+
+                              val orderId = LeVendingProbe.extractOrderId(line)
+                              val apiSale = LeVendingProbe.isApiSaleSuccess(line)
+                              val actSale = LeVendingProbe.isPrimarySaleMarker(line) || LeVendingProbe.isDropCupMarker(line)
+
+                              if (apiSale || actSale) {
+                                  val dupOrder = !orderId.isNullOrBlank() && orderId == lastOrderId
+                                  val coolDown = now - lastSaleTs <= 20000L
+                                  if (!dupOrder && !coolDown) {
                                       lastSaleTs = now
+                                      if (!orderId.isNullOrBlank()) lastOrderId = orderId
+                                      
                                       val fresh = (now - pendingMetaTs) < 120000L
-                                      registerDrinkSale(
-                                          if (fresh && pendingName.isNotBlank()) pendingName else "Напиток (LeVending)",
-                                          if (fresh && pendingPrice > 0) pendingPrice else 150
-                                      )
+                                      val drink = if (fresh && pendingName.isNotBlank()) pendingName else "Напиток (LeVending)"
+                                      val price = if (fresh && pendingPrice > 0) pendingPrice else 0
+                                      registerDrinkSale(drink, price)
                                   }
                               }
                           }
@@ -1040,8 +1090,9 @@ jobs:
                           }
                           val p = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
                           val at = p.getLong("last_sale_at", 0L)
+                          val pr = p.getInt("last_sale_price", 0)
                           findViewById<TextView>(R.id.tv_last_sale).text = if (at == 0L) "Посл. продажа: -"
-                          else "Посл. продажа: ${p.getString("last_sale_name", "")} | ${p.getInt("last_sale_price", 0)} ₽ | ${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at))}"
+                          else "Посл. продажа: ${p.getString("last_sale_name", "")} | ${if(pr>0) "$pr ₽" else "цена н/д"} | ${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at))}"
                           handler.postDelayed(this, 2000)
                       }
                   })
@@ -1214,7 +1265,6 @@ jobs:
 
           if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
             echo "::warning::BOT_TOKEN or CHAT_ID secrets are not set! Skipping Telegram upload."
-            echo "You can download the APK from the GitHub Actions Artifacts section above."
             exit 0
           fi
 
@@ -1222,7 +1272,7 @@ jobs:
           RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
             -F chat_id="$CHAT_ID" \
             -F document=@"$APK" \
-            -F caption="☕ Cofferno LV-307 v7.2.7 (Сборка $(date +'%d.%m %H:%M'))" \
+            -F caption="☕ Cofferno LV-307 v7.2.8 (Сборка $(date +'%d.%m %H:%M'))" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument")
 
           echo "Telegram Response: $RESPONSE"
