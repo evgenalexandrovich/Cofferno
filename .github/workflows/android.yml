@@ -24,42 +24,44 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Project (${{ matrix.role }})
+      - name: Generate Project
         env:
-          APP_ROLE: ${{ matrix.role }}
+          ROLE: ${{ matrix.role }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
-          set -e
-          ROLE="${APP_ROLE}"
+          set -euo pipefail
+
+          ROLE="${ROLE}"
           if [ "$ROLE" = "agent" ]; then
             APP_ID="com.coffee.telemetry.agent"
             APP_LABEL="Cofferno Agent"
             VER_NAME="7.5.5-agent"
             VER_CODE=975
+            IS_AGENT="true"
           else
             APP_ID="com.coffee.telemetry.operator"
-            APP_LABEL="Cofferno Пульт"
+            APP_LABEL="Cofferno Operator"
             VER_NAME="7.5.5-operator"
             VER_CODE=976
+            IS_AGENT="false"
           fi
 
-          # токен в APK (личный бот)
           BT="${BOT_TOKEN:-}"
           CI="${CHAT_ID:-}"
           if [ -z "$BT" ] || [ -z "$CI" ]; then
-            echo "::warning::BOT_TOKEN/CHAT_ID secrets empty — Telegram из APK не заработает"
+            echo "::warning::BOT_TOKEN or CHAT_ID empty — set GitHub Actions secrets"
             BT="MISSING_BOT_TOKEN"
             CI="0"
           fi
-          # escape for Kotlin string
+          # escape for Kotlin string literals
           BT_ESC=$(printf '%s' "$BT" | sed 's/\\/\\\\/g; s/"/\\"/g')
           CI_ESC=$(printf '%s' "$CI" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
           B=app/src/main
           P=$B/java/com/coffee/telemetry
-          rm -rf app build .gradle
-          mkdir -p $P $B/res/layout $B/res/values $B/res/menu $B/res/drawable
+          rm -rf app build .gradle settings.gradle build.gradle gradle.properties 2>/dev/null || true
+          mkdir -p "$P" "$B/res/layout" "$B/res/values" "$B/res/menu" "$B/res/drawable"
 
           cat > settings.gradle << 'EOF'
           pluginManagement {
@@ -86,6 +88,7 @@ jobs:
           org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
           EOF
 
+          # ВАЖНО: переменные подставляются shell'ом; IS_AGENT уже true/false
           cat > app/build.gradle << EOF
           plugins {
               id 'com.android.application'
@@ -95,13 +98,13 @@ jobs:
               namespace 'com.coffee.telemetry'
               compileSdk 34
               defaultConfig {
-                  applicationId "$APP_ID"
+                  applicationId "${APP_ID}"
                   minSdk 23
                   targetSdk 34
-                  versionCode $VER_CODE
-                  versionName "$VER_NAME"
-                  buildConfigField "String", "APP_ROLE", "\"$ROLE\""
-                  buildConfigField "boolean", "IS_AGENT", "${ROLE == agent}"
+                  versionCode ${VER_CODE}
+                  versionName "${VER_NAME}"
+                  buildConfigField "String", "APP_ROLE", "\\"${ROLE}\\""
+                  buildConfigField "boolean", "IS_AGENT", "${IS_AGENT}"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -121,48 +124,7 @@ jobs:
           }
           EOF
 
-          # fix IS_AGENT boolean in gradle (bash)
-          if [ "$ROLE" = "agent" ]; then
-            sed -i 's/IS_AGENT", "false"/IS_AGENT", "true"/' app/build.gradle 2>/dev/null || \
-            sed -i '' 's/buildConfigField "boolean", "IS_AGENT", "false"/buildConfigField "boolean", "IS_AGENT", "true"/' app/build.gradle
-          fi
-          # rewrite defaultConfig IS_AGENT cleanly
-          cat > app/build.gradle << EOF
-          plugins {
-              id 'com.android.application'
-              id 'org.jetbrains.kotlin.android'
-          }
-          android {
-              namespace 'com.coffee.telemetry'
-              compileSdk 34
-              defaultConfig {
-                  applicationId "$APP_ID"
-                  minSdk 23
-                  targetSdk 34
-                  versionCode $VER_CODE
-                  versionName "$VER_NAME"
-                  buildConfigField "String", "APP_ROLE", "\"$ROLE\""
-                  buildConfigField "boolean", "IS_AGENT", "$([ "$ROLE" = agent ] && echo true || echo false)"
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-              kotlinOptions { jvmTarget = '17' }
-              buildFeatures { buildConfig true }
-              lint { abortOnError false; checkReleaseBuilds false }
-          }
-          dependencies {
-              implementation 'androidx.core:core-ktx:1.12.0'
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.11.0'
-              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-              implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
-              implementation 'com.google.code.gson:gson:2.10.1'
-          }
-          EOF
-
-          cat > $B/AndroidManifest.xml << EOF
+          cat > "$B/AndroidManifest.xml" << EOF
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET"/>
@@ -177,7 +139,7 @@ jobs:
               <application
                   android:allowBackup="true"
                   android:icon="@drawable/ic_app_icon"
-                  android:label="$APP_LABEL"
+                  android:label="${APP_LABEL}"
                   android:theme="@style/AppTheme"
                   android:usesCleartextTraffic="true"
                   android:supportsRtl="false"
@@ -203,11 +165,11 @@ jobs:
           </manifest>
           EOF
 
-          cat > $B/res/values/strings.xml << EOF
-          <resources><string name="app_name">$APP_LABEL</string></resources>
+          cat > "$B/res/values/strings.xml" << EOF
+          <resources><string name="app_name">${APP_LABEL}</string></resources>
           EOF
 
-          cat > $B/res/values/colors.xml << 'EOF'
+          cat > "$B/res/values/colors.xml" << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="bg">#110B09</color>
@@ -224,7 +186,7 @@ jobs:
           </resources>
           EOF
 
-          cat > $B/res/values/styles.xml << 'EOF'
+          cat > "$B/res/values/styles.xml" << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
@@ -236,32 +198,29 @@ jobs:
           </resources>
           EOF
 
-          cat > $B/res/drawable/ic_app_icon.xml << 'EOF'
+          cat > "$B/res/drawable/ic_app_icon.xml" << 'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="48dp" android:height="48dp" android:viewportWidth="24" android:viewportHeight="24">
               <path android:fillColor="#D4A373" android:pathData="M20,3H4v10c0,2.21 1.79,4 4,4h6c2.21,0 4,-1.79 4,-4v-3h2c1.1,0 2,-0.9 2,-2V5c0,-1.1 -0.9,-2 -2,-2zm0,5h-2V5h2v3zM4,19h16v2H4z"/>
           </vector>
           EOF
-          cat > $B/res/drawable/ic_nav_sales.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+          cat > "$B/res/drawable/ic_nav_sales.xml" << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
               <path android:fillColor="#FFFFFF" android:pathData="M19,3H5c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2V5c0,-1.1 -0.9,-2 -2,-2zm-7,14H6v-2h6v2zm4,-4H6v-2h10v2zm0,-4H6V7h10v2z"/>
           </vector>
           EOF
-          cat > $B/res/drawable/ic_nav_manage.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+          cat > "$B/res/drawable/ic_nav_manage.xml" << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
               <path android:fillColor="#FFFFFF" android:pathData="M3,13h8V3H3v10zm0,8h8v-6H3v6zm10,0h8V11h-8v10zm0,-18v6h8V3h-8z"/>
           </vector>
           EOF
-          cat > $B/res/drawable/ic_nav_agent.xml << 'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+          cat > "$B/res/drawable/ic_nav_agent.xml" << 'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
               <path android:fillColor="#FFFFFF" android:pathData="M12,1L3,5v6c0,5.55 3.84,10.74 9,12 5.16,-1.26 9,-6.45 9,-12V5l-9,-4zm0,10.99h7c-0.53,4.12 -3.28,7.79 -7,8.94V12H5V6.3l7,-3.11v8.8z"/>
           </vector>
           EOF
 
-          cat > $B/res/menu/bottom_nav.xml << 'EOF'
+          cat > "$B/res/menu/bottom_nav.xml" << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <menu xmlns:android="http://schemas.android.com/apk/res/android">
               <item android:id="@+id/nav_sales" android:title="Продажи" android:icon="@drawable/ic_nav_sales"/>
@@ -270,16 +229,15 @@ jobs:
           </menu>
           EOF
 
-          # --- layout (same structure both apps; agent shows agent tab first via code) ---
-          cat > $B/res/layout/activity_main.xml << 'LEOF'
+          cat > "$B/res/layout/activity_main.xml" << 'LEOF'
           <?xml version="1.0" encoding="utf-8"?>
           <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
               xmlns:app="http://schemas.android.com/apk/res-auto"
-              android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/bg"
-              android:layoutDirection="ltr">
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:background="@color/bg" android:layoutDirection="ltr">
               <LinearLayout android:id="@+id/header" android:layout_width="0dp" android:layout_height="wrap_content"
                   android:background="@color/card" android:gravity="center_vertical" android:orientation="horizontal" android:padding="12dp"
-                  app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
+                  app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
                   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                       <TextView android:id="@+id/tv_header_title" android:layout_width="wrap_content" android:layout_height="wrap_content"
                           android:text="Cofferno" android:textColor="@color/white" android:textSize="17sp" android:textStyle="bold"/>
@@ -293,34 +251,36 @@ jobs:
                       app:strokeColor="@color/accent" app:strokeWidth="1dp"/>
               </LinearLayout>
               <ScrollView android:id="@+id/main_scroll" android:layout_width="0dp" android:layout_height="0dp" android:fillViewport="true"
-                  app:layout_constraintBottom_toTopOf="@id/bottom_nav" app:layout_constraintEnd_toEndOf="parent"
-                  app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/header">
+                  app:layout_constraintTop_toBottomOf="@id/header" app:layout_constraintBottom_toTopOf="@id/bottom_nav"
+                  app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
                   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
                       <LinearLayout android:id="@+id/tab_sales" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
-                          <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:scrollbars="none">
+                          <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none">
                               <LinearLayout android:id="@+id/ll_filter_chips" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal"/>
                           </HorizontalScrollView>
                           <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:layout_marginBottom="12dp" app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              android:layout_marginTop="12dp" app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
                               <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                                   <TextView android:id="@+id/tv_summary_title" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                      android:text="Выручка" android:textColor="@color/white" android:textSize="15sp" android:textStyle="bold"/>
+                                      android:text="Выручка" android:textColor="@color/white" android:textStyle="bold"/>
                                   <TextView android:id="@+id/tv_total_revenue" android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="0 ₽" android:textColor="@color/accent" android:textSize="22sp" android:textStyle="bold"/>
                                   <TextView android:id="@+id/tv_total_profit" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                      android:text="0 ₽" android:textColor="@color/green" android:textSize="16sp"/>
+                                      android:text="0 ₽" android:textColor="@color/green"/>
                                   <TextView android:id="@+id/tv_total_cups" android:layout_width="wrap_content" android:layout_height="wrap_content"
                                       android:text="Стаканов: 0" android:textColor="@color/muted" android:textSize="12sp"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
-                          <LinearLayout android:id="@+id/ll_drinks_container" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+                          <LinearLayout android:id="@+id/ll_drinks_container" android:layout_width="match_parent" android:layout_height="wrap_content"
+                              android:orientation="vertical" android:layout_marginTop="8dp"/>
                       </LinearLayout>
-                      <LinearLayout android:id="@+id/tab_manage" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                      <LinearLayout android:id="@+id/tab_manage" android:layout_width="match_parent" android:layout_height="wrap_content"
+                          android:orientation="vertical" android:visibility="gone">
                           <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:layout_marginBottom="12dp" app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
+                              app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
                               <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                                  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Автомат (ID без нулей, напр. 10546)"
-                                      android:textColor="@color/accent" android:textStyle="bold" android:textSize="13sp"/>
+                                  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ID автомата (без нулей: 10546)"
+                                      android:textColor="@color/accent" android:textStyle="bold"/>
                                   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
                                       <EditText android:id="@+id/et_new_serial" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                                           android:hint="10546" android:inputType="number" android:textColor="@color/white" android:textColorHint="@color/muted"/>
@@ -333,79 +293,60 @@ jobs:
                                       <EditText android:id="@+id/et_custom_name" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                                           android:hint="Имя" android:textColor="@color/white" android:textColorHint="@color/muted"/>
                                       <Button android:id="@+id/btn_save_name" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                          android:text="Имя" android:backgroundTint="@color/card" android:textColor="@color/white" app:strokeColor="@color/accent" app:strokeWidth="1dp"/>
+                                          android:text="OK" android:backgroundTint="@color/card" android:textColor="@color/white" app:strokeWidth="1dp" app:strokeColor="@color/accent"/>
                                   </LinearLayout>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
-                          <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:layout_marginBottom="12dp" app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
-                              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                                  <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:text="Отчёт: Telegram (основной) + MQTT"
-                                      android:textColor="@color/accent" android:textStyle="bold" android:textSize="13sp"/>
-                                  <Button android:id="@+id/btn_remote_scan_logs" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:layout_marginTop="8dp" android:backgroundTint="@color/blue" android:text="Запросить отчёт → Telegram" android:textColor="@color/white"/>
-                                  <Button android:id="@+id/btn_copy_remote_logs" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:layout_marginTop="8dp" android:backgroundTint="@color/card" android:text="Скопировать ответ MQTT" android:textColor="@color/white"
-                                      app:strokeColor="@color/accent" app:strokeWidth="1dp"/>
-                                  <TextView android:id="@+id/tv_remote_logs_output" android:layout_width="match_parent" android:layout_height="200dp"
-                                      android:layout_marginTop="8dp" android:background="#000000" android:padding="8dp" android:textColor="#00FF66"
-                                      android:textSize="10sp" android:textIsSelectable="true" android:textDirection="ltr" android:text="Ответ MQTT (краткий)..."/>
-                              </LinearLayout>
-                          </com.google.android.material.card.MaterialCardView>
-                          <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:layout_marginBottom="12dp" app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
-                              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-                                  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Себестоимость"
-                                      android:textColor="@color/accent" android:textStyle="bold"/>
-                                  <LinearLayout android:id="@+id/ll_costs_container" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
-                                  <TextView android:id="@+id/tv_costs_empty" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:text="После продаж" android:textColor="@color/muted" android:textSize="12sp"/>
-                                  <Button android:id="@+id/btn_save_all_costs" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:layout_marginTop="8dp" android:backgroundTint="@color/accent" android:text="Сохранить" android:textColor="@color/dark"/>
-                              </LinearLayout>
-                          </com.google.android.material.card.MaterialCardView>
+                          <Button android:id="@+id/btn_remote_scan_logs" android:layout_width="match_parent" android:layout_height="wrap_content"
+                              android:layout_marginTop="12dp" android:backgroundTint="@color/blue" android:text="Отчёт → Telegram" android:textColor="@color/white"/>
+                          <Button android:id="@+id/btn_copy_remote_logs" android:layout_width="match_parent" android:layout_height="wrap_content"
+                              android:layout_marginTop="8dp" android:backgroundTint="@color/card" android:text="Копировать MQTT" android:textColor="@color/white"/>
+                          <TextView android:id="@+id/tv_remote_logs_output" android:layout_width="match_parent" android:layout_height="160dp"
+                              android:layout_marginTop="8dp" android:background="#000" android:padding="8dp" android:textColor="#0F0" android:textSize="10sp"
+                              android:textDirection="ltr" android:textIsSelectable="true" android:text="..."/>
+                          <LinearLayout android:id="@+id/ll_costs_container" android:layout_width="match_parent" android:layout_height="wrap_content"
+                              android:orientation="vertical" android:layout_marginTop="12dp"/>
+                          <TextView android:id="@+id/tv_costs_empty" android:layout_width="match_parent" android:layout_height="wrap_content"
+                              android:text="Себестоимость после продаж" android:textColor="@color/muted"/>
+                          <Button android:id="@+id/btn_save_all_costs" android:layout_width="match_parent" android:layout_height="wrap_content"
+                              android:layout_marginTop="8dp" android:backgroundTint="@color/accent" android:text="Сохранить себестоимость" android:textColor="@color/dark"/>
                           <Button android:id="@+id/btn_reset_counters" android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:backgroundTint="@color/yellow" android:text="Сброс счётчиков" android:textColor="@color/dark"/>
-                          <Button android:id="@+id/btn_remote_reboot" android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:layout_marginTop="8dp" android:backgroundTint="@color/orange" android:text="Reboot (Root)" android:textColor="@color/white" android:visibility="gone"/>
-                          <Button android:id="@+id/btn_remote_flush" android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:layout_marginTop="8dp" android:backgroundTint="@color/blue" android:text="Flush" android:textColor="@color/white" android:visibility="gone"/>
-                          <Button android:id="@+id/btn_remote_lock" android:layout_width="match_parent" android:layout_height="wrap_content"
-                              android:layout_marginTop="8dp" android:backgroundTint="@color/red" android:text="Lock" android:textColor="@color/white" android:visibility="gone"/>
+                              android:layout_marginTop="8dp" android:backgroundTint="@color/yellow" android:text="Сброс счётчиков" android:textColor="@color/dark"/>
+                          <Button android:id="@+id/btn_remote_reboot" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone"/>
+                          <Button android:id="@+id/btn_remote_flush" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone"/>
+                          <Button android:id="@+id/btn_remote_lock" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone"/>
                       </LinearLayout>
-                      <LinearLayout android:id="@+id/tab_agent" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                      <LinearLayout android:id="@+id/tab_agent" android:layout_width="match_parent" android:layout_height="wrap_content"
+                          android:orientation="vertical" android:visibility="gone">
                           <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content"
                               app:cardBackgroundColor="@color/card" app:cardCornerRadius="12dp">
                               <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
                                   <TextView android:id="@+id/tv_role_banner" android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:text="ROLE" android:textColor="@color/orange" android:textStyle="bold"/>
-                                  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Device ID" android:textColor="@color/muted" android:layout_marginTop="8dp"/>
                                   <TextView android:id="@+id/tv_detected_device_id" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:text="—" android:textColor="@color/accent" android:textSize="22sp" android:textStyle="bold"/>
+                                      android:layout_marginTop="8dp" android:text="—" android:textColor="@color/accent" android:textSize="22sp" android:textStyle="bold"/>
                                   <Button android:id="@+id/btn_detect_device_id" android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:layout_marginTop="8dp" android:backgroundTint="@color/blue" android:text="Определить ID" android:textColor="@color/white"/>
                                   <Button android:id="@+id/btn_use_device_id" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:layout_marginTop="8dp" android:backgroundTint="@color/green" android:text="ID → S/N + список" android:textColor="@color/white"/>
+                                      android:layout_marginTop="8dp" android:backgroundTint="@color/green" android:text="ID как S/N" android:textColor="@color/white"/>
                                   <EditText android:id="@+id/et_agent_serial" android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:layout_marginTop="8dp" android:hint="S/N" android:textColor="@color/white" android:textColorHint="@color/muted"/>
                                   <Button android:id="@+id/btn_save_agent_serial" android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:layout_marginTop="8dp" android:backgroundTint="@color/accent" android:text="Сохранить S/N" android:textColor="@color/dark"/>
                                   <com.google.android.material.switchmaterial.SwitchMaterial android:id="@+id/switch_agent"
-                                      android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp"
+                                      android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
                                       android:text="Служба агента" android:textColor="@color/white"/>
                                   <TextView android:id="@+id/tv_agent_status" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:text="—" android:textColor="@color/yellow" android:textSize="12sp"/>
+                                      android:text="—" android:textColor="@color/yellow"/>
                                   <TextView android:id="@+id/tv_last_sale" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:text="—" android:textColor="@color/muted" android:textSize="12sp"/>
+                                      android:text="—" android:textColor="@color/muted"/>
                                   <TextView android:id="@+id/tv_tg_status" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:layout_marginTop="8dp" android:text="Telegram: —" android:textColor="@color/muted" android:textSize="11sp"/>
+                                      android:text="TG" android:textColor="@color/muted" android:textSize="11sp"/>
                                   <Button android:id="@+id/btn_scan_coffeenet" android:layout_width="match_parent" android:layout_height="wrap_content"
-                                      android:layout_marginTop="12dp" android:backgroundTint="@color/blue" android:text="Локальный logcat + в Telegram" android:textColor="@color/white"/>
-                                  <TextView android:id="@+id/tv_coffeenet_logs" android:layout_width="match_parent" android:layout_height="360dp"
+                                      android:layout_marginTop="12dp" android:backgroundTint="@color/blue" android:text="Скан logcat + Telegram" android:textColor="@color/white"/>
+                                  <TextView android:id="@+id/tv_coffeenet_logs" android:layout_width="match_parent" android:layout_height="320dp"
                                       android:layout_marginTop="8dp" android:background="#000" android:padding="8dp" android:textColor="#0F0"
-                                      android:textSize="10sp" android:textIsSelectable="true" android:textDirection="ltr" android:gravity="top|start"
-                                      android:scrollbars="vertical" android:text="..."/>
+                                      android:textSize="10sp" android:textDirection="ltr" android:textIsSelectable="true" android:gravity="top|start"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
@@ -413,36 +354,40 @@ jobs:
               </ScrollView>
               <com.google.android.material.bottomnavigation.BottomNavigationView android:id="@+id/bottom_nav"
                   android:layout_width="0dp" android:layout_height="wrap_content" android:background="@color/card"
-                  app:itemIconTint="@color/accent" app:itemTextColor="@color/white" app:menu="@menu/bottom_nav"
+                  app:menu="@menu/bottom_nav" app:itemIconTint="@color/accent" app:itemTextColor="@color/white"
                   app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent"/>
           </androidx.constraintlayout.widget.ConstraintLayout>
           LEOF
 
-          cat > $P/Constants.kt << EOF
+          cat > "$P/Constants.kt" << EOF
           package com.coffee.telemetry
-          /** Вшито при сборке CI из GitHub Secrets (личный бот). */
           object Constants {
-              const val BOT_TOKEN = "$BT_ESC"
-              const val CHAT_ID = "$CI_ESC"
+              const val BOT_TOKEN = "${BT_ESC}"
+              const val CHAT_ID = "${CI_ESC}"
               const val MQTT_BROKER = "tcp://broker.hivemq.com:1883"
-              /** Запасной брокер, если HiveMQ тупит */
               const val MQTT_BROKER_FALLBACK = "tcp://broker.emqx.io:1883"
           }
           EOF
 
-          cat > $P/Models.kt << 'EOF'
+          cat > "$P/Models.kt" << 'EOF'
           package com.coffee.telemetry
           data class DrinkItem(val id: Int, var name: String, var count: Int, var price: Int, var cost: Int = 0)
           data class TelemetryPacket(
-              val serial: String, val temp: Double = 0.0, val pressure: Double = 0.0, val status: String = "",
-              val drinks: MutableList<DrinkItem> = mutableListOf(), val deviceId: String = "",
-              val lastSaleName: String = "", val lastSalePrice: Int = 0, val lastSaleAt: Long = 0L,
+              val serial: String,
+              val temp: Double = 0.0,
+              val pressure: Double = 0.0,
+              val status: String = "",
+              val drinks: MutableList<DrinkItem> = mutableListOf(),
+              val deviceId: String = "",
+              val lastSaleName: String = "",
+              val lastSalePrice: Int = 0,
+              val lastSaleAt: Long = 0L,
               val timestamp: Long = System.currentTimeMillis()
           )
           data class MergedDrink(val name: String, var count: Int, val price: Int, val cost: Int)
           EOF
 
-          cat > $P/IdUtil.kt << 'EOF'
+          cat > "$P/IdUtil.kt" << 'EOF'
           package com.coffee.telemetry
           object IdUtil {
               fun normalize(raw: String?): String {
@@ -458,53 +403,80 @@ jobs:
           }
           EOF
 
-          cat > $P/Telegram.kt << 'EOF'
+          cat > "$P/Telegram.kt" << 'EOF'
           package com.coffee.telemetry
           import java.net.HttpURLConnection
           import java.net.URL
           import java.net.URLEncoder
-          import java.nio.charset.StandardCharsets
-
           object Telegram {
               fun configured(): Boolean =
                   Constants.BOT_TOKEN.isNotBlank() &&
                   Constants.BOT_TOKEN != "MISSING_BOT_TOKEN" &&
                   Constants.CHAT_ID.isNotBlank() && Constants.CHAT_ID != "0"
-
-              /** Шлёт текст; длинные режет на части < 3500 */
               fun send(text: String): Boolean {
                   if (!configured()) return false
-                  val chunks = text.chunked(3500)
                   var ok = true
-                  for (c in chunks) {
+                  for (c in text.chunked(3500)) {
                       if (!sendOne(c)) ok = false
                       try { Thread.sleep(400) } catch (_: Exception) {}
                   }
                   return ok
               }
-
-              private fun sendOne(text: String): Boolean {
-                  return try {
-                      val url = URL("https://api.telegram.org/bot${Constants.BOT_TOKEN}/sendMessage")
-                      val body = "chat_id=${URLEncoder.encode(Constants.CHAT_ID, "UTF-8")}" +
-                          "&text=${URLEncoder.encode(text, "UTF-8")}"
-                      val conn = (url.openConnection() as HttpURLConnection).apply {
-                          requestMethod = "POST"
-                          doOutput = true
-                          connectTimeout = 15000
-                          readTimeout = 15000
-                          setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
-                      }
-                      conn.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
-                      val code = conn.responseCode
-                      conn.disconnect()
-                      code in 200..299
-                  } catch (_: Exception) { false }
-              }
+              private fun sendOne(text: String): Boolean = try {
+                  val url = URL("https://api.telegram.org/bot\${Constants.BOT_TOKEN}/sendMessage")
+                  val body = "chat_id=" + URLEncoder.encode(Constants.CHAT_ID, "UTF-8") +
+                      "&text=" + URLEncoder.encode(text, "UTF-8")
+                  val conn = (url.openConnection() as HttpURLConnection).apply {
+                      requestMethod = "POST"; doOutput = true
+                      connectTimeout = 15000; readTimeout = 15000
+                      setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
+                  }
+                  conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                  val code = conn.responseCode
+                  conn.disconnect()
+                  code in 200..299
+              } catch (_: Exception) { false }
           }
           EOF
 
-          cat > $P/LeVendingProbe.kt << 'EOF'
+          # Fix Telegram.kt - the \${ was wrong in heredoc. Rewrite cleanly with 'EOF'
+          cat > "$P/Telegram.kt" << 'EOF'
+          package com.coffee.telemetry
+          import java.net.HttpURLConnection
+          import java.net.URL
+          import java.net.URLEncoder
+          object Telegram {
+              fun configured(): Boolean =
+                  Constants.BOT_TOKEN.isNotBlank() &&
+                  Constants.BOT_TOKEN != "MISSING_BOT_TOKEN" &&
+                  Constants.CHAT_ID.isNotBlank() && Constants.CHAT_ID != "0"
+              fun send(text: String): Boolean {
+                  if (!configured()) return false
+                  var ok = true
+                  for (c in text.chunked(3500)) {
+                      if (!sendOne(c)) ok = false
+                      try { Thread.sleep(400) } catch (_: Exception) {}
+                  }
+                  return ok
+              }
+              private fun sendOne(text: String): Boolean = try {
+                  val url = URL("https://api.telegram.org/bot" + Constants.BOT_TOKEN + "/sendMessage")
+                  val body = "chat_id=" + URLEncoder.encode(Constants.CHAT_ID, "UTF-8") +
+                      "&text=" + URLEncoder.encode(text, "UTF-8")
+                  val conn = (url.openConnection() as HttpURLConnection).apply {
+                      requestMethod = "POST"; doOutput = true
+                      connectTimeout = 15000; readTimeout = 15000
+                      setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
+                  }
+                  conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                  val code = conn.responseCode
+                  conn.disconnect()
+                  code in 200..299
+              } catch (_: Exception) { false }
+          }
+          EOF
+
+          cat > "$P/LeVendingProbe.kt" << 'EOF'
           package com.coffee.telemetry
           import android.content.Context
           import android.net.Uri
@@ -512,31 +484,26 @@ jobs:
           import java.io.InputStreamReader
           import java.net.URLDecoder
           import java.text.SimpleDateFormat
-          import java.util.*
+          import java.util.Date
+          import java.util.Locale
           import java.util.regex.Pattern
-
           object LeVendingProbe {
               private val devicePatterns = arrayOf(
                   Pattern.compile("deviceid=([0-9]{6,18})", Pattern.CASE_INSENSITIVE),
                   Pattern.compile("deviceId=([0-9]{6,18})", Pattern.CASE_INSENSITIVE)
               )
               private val drinkPatterns = listOf(
-                  Pattern.compile("""(?i)двойн\w*\s*эспрессо""") to "Двойной Эспрессо",
-                  Pattern.compile("""(?i)двойн\w*\s*американо""") to "Двойной Американо",
-                  Pattern.compile("""(?i)флэт\s*уайт|флет\s*уайт|flat\s*white""") to "Флэт Уайт",
-                  Pattern.compile("""(?i)капуч+ино|cappuccino""") to "Капучино",
-                  Pattern.compile("""(?i)латте|latte""") to "Латте",
-                  Pattern.compile("""(?i)американо|americano""") to "Американо",
-                  Pattern.compile("""(?i)эспрессо|espresso""") to "Эспрессо",
-                  Pattern.compile("""(?i)мокачино""") to "Мокачино",
-                  Pattern.compile("""(?i)какао""") to "Какао",
-                  Pattern.compile("""(?i)раф""") to "Раф",
-                  Pattern.compile("""(?i)флэт|флет""") to "Флэт Уайт",
-                  Pattern.compile("""(?i)двойн""") to "Двойной"
+                  Pattern.compile("(?i)двойн\\w*\\s*эспрессо") to "Двойной Эспрессо",
+                  Pattern.compile("(?i)двойн\\w*\\s*американо") to "Двойной Американо",
+                  Pattern.compile("(?i)флэт\\s*уайт|flat\\s*white") to "Флэт Уайт",
+                  Pattern.compile("(?i)капуч+ино|cappuccino") to "Капучино",
+                  Pattern.compile("(?i)латте|latte") to "Латте",
+                  Pattern.compile("(?i)американо|americano") to "Американо",
+                  Pattern.compile("(?i)эспрессо|espresso") to "Эспрессо",
+                  Pattern.compile("(?i)флэт|флет") to "Флэт Уайт",
+                  Pattern.compile("(?i)двойн") to "Двойной"
               )
-
               data class SaleQuery(val orderId: String?, val name: String?, val price: Int?, val deviceDateMs: Long?)
-
               fun findDeviceIdFromLogLine(line: String): String? {
                   for (p in devicePatterns) {
                       val m = p.matcher(line)
@@ -544,38 +511,29 @@ jobs:
                   }
                   return null
               }
-
               fun findDeviceId(context: Context): String {
                   val prefs = context.getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
                   val saved = IdUtil.normalize(prefs.getString("levending_device_id", ""))
-                  if (saved.isNotBlank()) {
-                      prefs.edit().putString("levending_device_id", saved).apply()
-                      return saved
-                  }
+                  if (saved.isNotBlank()) { prefs.edit().putString("levending_device_id", saved).apply(); return saved }
                   try {
-                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "1200"))
+                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "1000"))
                       val r = BufferedReader(InputStreamReader(p.inputStream))
                       while (true) {
                           val line = r.readLine() ?: break
                           val id = findDeviceIdFromLogLine(line) ?: continue
-                          prefs.edit().putString("levending_device_id", id).apply()
-                          return id
+                          prefs.edit().putString("levending_device_id", id).apply(); return id
                       }
                   } catch (_: Exception) {}
                   return ""
               }
-
               fun isApiSaleSuccess(line: String): Boolean {
                   val l = line.lowercase()
                   return l.contains("vmsalesuccess") || l.contains("sendoutgoodssuccess")
               }
-
               fun isLiveSaleHint(line: String): Boolean {
                   val l = line.lowercase()
-                  return l.contains("makedrink") || l.contains("alonedropcup") || l.contains("payactivity") ||
-                      l.contains("dropcup") || (l.contains("vmgoods") && l.contains("goodsno"))
+                  return l.contains("makedrink") || l.contains("alonedropcup") || l.contains("payactivity") || l.contains("dropcup")
               }
-
               fun parseSaleQuery(line: String): SaleQuery {
                   val blob = when {
                       line.contains("-->") -> line.substringAfter("-->")
@@ -594,14 +552,13 @@ jobs:
                       if (k.isNotEmpty() && v.isNotEmpty()) map[k] = v
                   }
                   val orderId = map["orderid"] ?: map["ordercode"]
-                  val nameRaw = map["goodsname"] ?: map["productname"] ?: map["coffeename"] ?: map["drinkname"]
+                  val nameRaw = map["goodsname"] ?: map["productname"] ?: map["coffeename"]
                   val name = nameRaw?.let { normalizeDrinkName(it) }
-                  val price = listOf("goodsprice", "saleprice", "payamount", "price", "amount", "money")
+                  val price = listOf("goodsprice", "saleprice", "payamount", "price", "money", "amount")
                       .firstNotNullOfOrNull { map[it]?.toDoubleOrNull()?.toInt()?.takeIf { p -> p in 10..2000 } }
                   val dd = parseDeviceDate(map["devicedate"])
                   return SaleQuery(orderId, name, price, dd)
               }
-
               fun parseDeviceDate(raw: String?): Long? {
                   if (raw.isNullOrBlank()) return null
                   val d = raw.filter { it.isDigit() }
@@ -610,55 +567,36 @@ jobs:
                       SimpleDateFormat("yyyyMMddHHmmss", Locale.US).apply { isLenient = false }.parse(d.take(14))?.time
                   } catch (_: Exception) { null }
               }
-
               fun normalizeDrinkName(raw: String): String {
-                  val t = raw.trim()
-                  if (t.isEmpty()) return "Напиток"
+                  val t = raw.trim(); if (t.isEmpty()) return "Напиток"
                   for ((pat, ru) in drinkPatterns) if (pat.matcher(t).find()) return ru
                   return t.take(48)
               }
-
-              fun extractDrinkName(line: String): String? {
-                  parseSaleQuery(line).name?.let { return it }
-                  for ((pat, ru) in drinkPatterns) if (pat.matcher(line).find()) return ru
-                  return null
-              }
-
-              fun extractPrice(line: String): Int? = parseSaleQuery(line).price
-
               fun fullScan(context: Context): String {
                   val t = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                  val sb = StringBuilder()
-                  sb.append("COFFERNO v7.5.5 $t\n")
-                  sb.append("ID: ").append(findDeviceId(context).ifBlank { "?" }).append("\n")
-                  sb.append("Role note: agent logcat / no root\n\n")
+                  val sb = StringBuilder("COFFERNO 7.5.5 $t\nID: ${findDeviceId(context)}\n\n")
                   var n = 0
                   try {
-                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "2500", "-v", "time"))
+                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "2000", "-v", "time"))
                       val r = BufferedReader(InputStreamReader(p.inputStream))
                       while (true) {
                           val line = r.readLine() ?: break
-                          if (line.contains("GC freed", true)) continue
-                          if (!(isApiSaleSuccess(line) || line.contains("ZJHTTP", true) || isLiveSaleHint(line))) continue
+                          if (!isApiSaleSuccess(line) && !line.contains("ZJHTTP", true)) continue
                           if (isApiSaleSuccess(line)) {
                               val q = parseSaleQuery(line)
-                              sb.append("SALE ").append(q.name ?: "?").append(" ").append(q.price ?: "?")
-                                  .append("₽ order=").append(q.orderId ?: "?").append("\n")
-                          } else sb.append(line.take(180)).append("\n")
-                          if (++n >= 35) break
+                              sb.append("SALE ${q.name} ${q.price} order=${q.orderId}\n")
+                          } else sb.append(line.take(160)).append('\n')
+                          if (++n >= 30) break
                       }
                   } catch (e: Exception) { sb.append(e.message) }
-                  if (n == 0) sb.append("(empty)\n")
                   return sb.toString()
               }
           }
           EOF
 
-          cat > $P/AgentService.kt << 'EOF'
+          cat > "$P/AgentService.kt" << 'EOF'
           package com.coffee.telemetry
-
           import android.app.*
-          import android.content.Context
           import android.content.Intent
           import android.content.pm.ServiceInfo
           import android.os.*
@@ -672,60 +610,47 @@ jobs:
           import java.io.InputStreamReader
           import java.util.UUID
           import java.util.concurrent.Executors
-          import java.util.concurrent.ScheduledExecutorService
           import java.util.concurrent.TimeUnit
-
           class AgentService : Service() {
               private var client: MqttClient? = null
               private var brokerIdx = 0
               private val brokers = arrayOf(Constants.MQTT_BROKER, Constants.MQTT_BROKER_FALLBACK)
               private val gson = Gson()
               private var wakeLock: PowerManager.WakeLock? = null
-              private var sched: ScheduledExecutorService? = null
+              private var sched: java.util.concurrent.ScheduledExecutorService? = null
               private val loopExecutor = Executors.newSingleThreadExecutor()
               private val logcatExecutor = Executors.newSingleThreadExecutor()
               private val commandExecutor = Executors.newCachedThreadPool()
-
               private var lastSaleTs = 0L
               private var pendingName = ""
               private var pendingPrice = 0
               private var pendingMetaTs = 0L
               private var lastLiveHintTs = 0L
               private val maxSaleAgeMs = 12 * 60 * 1000L
-
               override fun onBind(intent: Intent?): IBinder? = null
-
               override fun onCreate() {
                   super.onCreate()
-                  // На пульте служба не нужна как перехватчик — но если включили, пусть шлёт heartbeat только если agent
                   val ch = "cofferno_agent"
                   if (Build.VERSION.SDK_INT >= 26)
                       getSystemService(NotificationManager::class.java)
-                          ?.createNotificationChannel(NotificationChannel(ch, "Cofferno Agent", NotificationManager.IMPORTANCE_LOW))
+                          ?.createNotificationChannel(NotificationChannel(ch, "Agent", NotificationManager.IMPORTANCE_LOW))
                   val n = NotificationCompat.Builder(this, ch)
-                      .setContentTitle("Cofferno Agent")
-                      .setContentText("MQTT + Telegram · ID без нулей")
+                      .setContentTitle("Cofferno Agent").setContentText("MQTT+TG")
                       .setSmallIcon(R.drawable.ic_app_icon).setOngoing(true).build()
-                  if (Build.VERSION.SDK_INT >= 29)
-                      startForeground(101, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                  if (Build.VERSION.SDK_INT >= 29) startForeground(101, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
                   else startForeground(101, n)
-
                   wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
-                      .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:W").apply { acquire(86400000L) }
-
+                      .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Cofferno:W")
+                  wakeLock?.acquire(86400000L)
                   migrateIds()
                   val id = LeVendingProbe.findDeviceId(this)
                   if (id.isNotBlank() && prefs().getString("custom_serial", "").isNullOrBlank())
                       prefs().edit().putString("custom_serial", id).apply()
-
                   if (BuildConfig.IS_AGENT || prefs().getBoolean("agent_active", false)) {
-                      startSaleInterceptor()
-                      startAgentLoop()
+                      startSaleInterceptor(); startAgentLoop()
                   }
               }
-
               private fun prefs() = getSharedPreferences("cofferno_agent", MODE_PRIVATE)
-
               private fun migrateIds() {
                   val p = prefs()
                   val c = IdUtil.normalize(p.getString("custom_serial", ""))
@@ -735,22 +660,18 @@ jobs:
                       if (d.isNotBlank()) putString("levending_device_id", d)
                   }.apply()
               }
-
               private fun getMachineSerial(): String {
                   IdUtil.normalize(prefs().getString("custom_serial", "")).takeIf { it.isNotBlank() }?.let { return it }
                   IdUtil.normalize(prefs().getString("levending_device_id", "")).takeIf { it.isNotBlank() }?.let { return it }
                   return IdUtil.normalize(Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)).ifBlank { "lv307" }
               }
-
-              private fun knownOrders(): MutableSet<String> =
+              private fun knownOrders() =
                   (prefs().getString("known_order_ids", "") ?: "").split(",").filter { it.isNotBlank() }.toMutableSet()
-
               private fun rememberOrder(id: String) {
                   if (id.isBlank()) return
                   val s = knownOrders().apply { add(id) }.toList().takeLast(500)
                   prefs().edit().putString("known_order_ids", s.joinToString(",")).apply()
               }
-
               private fun loadDrinks(): MutableList<DrinkItem> {
                   val j = prefs().getString("drinks_json", "") ?: return mutableListOf()
                   if (j.isEmpty()) return mutableListOf()
@@ -758,52 +679,39 @@ jobs:
                       gson.fromJson(j, object : TypeToken<MutableList<DrinkItem>>() {}.type) ?: mutableListOf()
                   } catch (_: Exception) { mutableListOf() }
               }
-
               private fun saveDrinks(list: List<DrinkItem>) {
                   prefs().edit().putString("drinks_json", gson.toJson(list)).apply()
               }
-
               private fun registerDrinkSale(name: String, price: Int) {
                   val drinks = loadDrinks()
                   val nm = LeVendingProbe.normalizeDrinkName(name)
                   val found = drinks.firstOrNull { it.name.equals(nm, true) }
                   val fp = if (price > 0) price else (found?.price ?: 0)
-                  if (found != null) {
-                      found.count++; if (fp > 0) found.price = fp
-                  } else drinks.add(DrinkItem(drinks.size, nm, 1, fp, 0))
+                  if (found != null) { found.count++; if (fp > 0) found.price = fp }
+                  else drinks.add(DrinkItem(drinks.size, nm, 1, fp, 0))
                   saveDrinks(drinks)
-                  prefs().edit()
-                      .putString("last_sale_name", nm)
-                      .putInt("last_sale_price", fp)
-                      .putLong("last_sale_at", System.currentTimeMillis())
-                      .apply()
+                  prefs().edit().putString("last_sale_name", nm).putInt("last_sale_price", fp)
+                      .putLong("last_sale_at", System.currentTimeMillis()).apply()
                   sendHeartbeat()
-                  // Telegram — стабильный канал
                   val sn = getMachineSerial()
-                  Thread {
-                      Telegram.send("☕ Продажа [$sn]\n$nm — ${if (fp > 0) "$fp ₽" else "цена?"}")
-                  }.start()
+                  Thread { Telegram.send("Продажа [$sn]\n$nm — ${if (fp > 0) "$fp RUB" else "?"}") }.start()
               }
-
               private fun startSaleInterceptor() {
                   logcatExecutor.execute {
                       try {
-                          val r = BufferedReader(InputStreamReader(
-                              Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time")).inputStream))
+                          val r = BufferedReader(InputStreamReader(Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time")).inputStream))
                           while (wakeLock?.isHeld == true) {
                               val line = r.readLine() ?: break
                               val now = System.currentTimeMillis()
                               LeVendingProbe.findDeviceIdFromLogLine(line)?.let { dev ->
                                   val p = prefs()
-                                  if (p.getString("levending_device_id", "") != dev) {
+                                  if (p.getString("levending_device_id", "") != dev)
                                       p.edit().putString("levending_device_id", dev).apply {
-                                          if (IdUtil.normalize(p.getString("custom_serial", "")).isBlank())
-                                              putString("custom_serial", dev)
+                                          if (IdUtil.normalize(p.getString("custom_serial", "")).isBlank()) putString("custom_serial", dev)
                                       }.apply()
-                                  }
                               }
                               if (LeVendingProbe.isLiveSaleHint(line)) lastLiveHintTs = now
-                              if (line.contains("ZJHTTP", true) || line.contains("ylapi", true) || line.contains("goods", true)) {
+                              if (line.contains("ZJHTTP", true) || line.contains("ylapi", true)) {
                                   val q = LeVendingProbe.parseSaleQuery(line)
                                   q.name?.let { pendingName = it; pendingMetaTs = now }
                                   q.price?.let { pendingPrice = it; pendingMetaTs = now }
@@ -820,17 +728,13 @@ jobs:
                                   if (age > maxSaleAgeMs && !recentLive) continue
                                   if (age < -3_600_000L) continue
                               } else if (!recentLive) continue
-
                               lastSaleTs = now
                               if (oid.isNotBlank()) rememberOrder(oid)
-                              val drink = q.name ?: pendingName.ifBlank { "Напиток" }
-                              val price = q.price ?: pendingPrice
-                              registerDrinkSale(drink, price)
+                              registerDrinkSale(q.name ?: pendingName.ifBlank { "Напиток" }, q.price ?: pendingPrice)
                           }
                       } catch (_: Exception) {}
                   }
               }
-
               private fun startAgentLoop() {
                   loopExecutor.execute {
                       while (wakeLock?.isHeld == true) {
@@ -838,14 +742,10 @@ jobs:
                               if (client?.isConnected != true) {
                                   try { client?.disconnect(); client?.close() } catch (_: Exception) {}
                                   val sn = getMachineSerial()
-                                  val br = brokers[brokerIdx % brokers.size]
-                                  brokerIdx++
-                                  client = MqttClient(br, "Ag${UUID.randomUUID().toString().take(10)}", MemoryPersistence())
+                                  val br = brokers[brokerIdx++ % brokers.size]
+                                  client = MqttClient(br, "Ag" + UUID.randomUUID().toString().take(10), MemoryPersistence())
                                   client!!.connect(MqttConnectOptions().apply {
-                                      isAutomaticReconnect = true
-                                      connectionTimeout = 20
-                                      keepAliveInterval = 30
-                                      maxInflight = 20
+                                      isAutomaticReconnect = true; connectionTimeout = 20; keepAliveInterval = 30
                                   })
                                   client!!.subscribe("cofferno/$sn/cmd", 1)
                                   client!!.setCallback(object : MqttCallback {
@@ -855,21 +755,17 @@ jobs:
                                               "REQUEST_UPDATE" -> sendHeartbeat()
                                               "RESET_COUNTERS" -> {
                                                   saveDrinks(emptyList())
-                                                  prefs().edit()
-                                                      .remove("last_sale_name").remove("last_sale_price")
-                                                      .remove("last_sale_at").remove("known_order_ids")
-                                                      .apply()
+                                                  prefs().edit().remove("last_sale_name").remove("last_sale_price")
+                                                      .remove("last_sale_at").remove("known_order_ids").apply()
                                                   sendHeartbeat()
-                                                  Thread { Telegram.send("♻️ [$sn] счётчики сброшены") }.start()
+                                                  Thread { Telegram.send("Reset counters [$sn]") }.start()
                                               }
                                               "SCAN_LOGS" -> commandExecutor.execute {
                                                   val report = LeVendingProbe.fullScan(this@AgentService)
-                                                  // 1) Telegram — главный канал логов
-                                                  val tgOk = Telegram.send("📋 Отчёт [$sn]\n\n$report")
-                                                  // 2) MQTT кусками QoS1
+                                                  Telegram.send("Report [$sn]\n\n$report")
                                                   try {
-                                                      val head = if (tgOk) "OK: отчёт в Telegram\n" else "TG fail; MQTT chunks\n"
-                                                      publishLogs(sn, head + report.take(800))
+                                                      client?.publish("cofferno/$sn/logs",
+                                                          MqttMessage(("TG ok\n" + report.take(800)).toByteArray(Charsets.UTF_8)).apply { qos = 1 })
                                                   } catch (_: Exception) {}
                                               }
                                           }
@@ -879,24 +775,13 @@ jobs:
                                   sched?.shutdownNow()
                                   sched = Executors.newSingleThreadScheduledExecutor()
                                   sched!!.scheduleAtFixedRate({ sendHeartbeat() }, 0, 5, TimeUnit.SECONDS)
-                                  Thread {
-                                      Telegram.send("🟢 Agent online [$sn] broker=${br.substringAfter("//").substringBefore(":")}")
-                                  }.start()
+                                  Thread { Telegram.send("Agent online [$sn]") }.start()
                               }
                           } catch (_: Exception) {}
                           Thread.sleep(4000)
                       }
                   }
               }
-
-              private fun publishLogs(sn: String, text: String) {
-                  val c = client ?: return
-                  if (!c.isConnected) return
-                  // один короткий пакет — большие в TG
-                  val payload = text.take(1500).toByteArray(Charsets.UTF_8)
-                  c.publish("cofferno/$sn/logs", MqttMessage(payload).apply { qos = 1 })
-              }
-
               private fun sendHeartbeat() {
                   try {
                       val c = client ?: return
@@ -904,30 +789,25 @@ jobs:
                       val sn = getMachineSerial()
                       val p = prefs()
                       val pkt = TelemetryPacket(
-                          sn, status = "agent",
-                          drinks = loadDrinks(),
+                          sn, status = "agent", drinks = loadDrinks(),
                           deviceId = IdUtil.normalize(p.getString("levending_device_id", "")),
                           lastSaleName = p.getString("last_sale_name", "") ?: "",
                           lastSalePrice = p.getInt("last_sale_price", 0),
                           lastSaleAt = p.getLong("last_sale_at", 0L)
                       )
-                      c.publish(
-                          "cofferno/$sn/data",
-                          MqttMessage(gson.toJson(pkt).toByteArray(Charsets.UTF_8)).apply { qos = 1; isRetained = false }
-                      )
+                      c.publish("cofferno/$sn/data",
+                          MqttMessage(gson.toJson(pkt).toByteArray(Charsets.UTF_8)).apply { qos = 1; isRetained = false })
                   } catch (_: Exception) {}
               }
-
               override fun onDestroy() {
                   sched?.shutdownNow()
                   try { client?.disconnect(); client?.close() } catch (_: Exception) {}
-                  wakeLock?.release()
-                  super.onDestroy()
+                  wakeLock?.release(); super.onDestroy()
               }
           }
           EOF
 
-          cat > $P/BootReceiver.kt << 'EOF'
+          cat > "$P/BootReceiver.kt" << 'EOF'
           package com.coffee.telemetry
           import android.content.*
           import android.os.Build
@@ -944,9 +824,8 @@ jobs:
           }
           EOF
 
-          cat > $P/MainActivity.kt << 'EOF'
+          cat > "$P/MainActivity.kt" << 'EOF'
           package com.coffee.telemetry
-
           import android.content.*
           import android.os.*
           import android.provider.Settings
@@ -957,16 +836,13 @@ jobs:
           import androidx.appcompat.app.AppCompatActivity
           import androidx.core.content.ContextCompat
           import com.google.android.material.bottomnavigation.BottomNavigationView
-          import com.google.android.material.card.MaterialCardView
           import com.google.android.material.switchmaterial.SwitchMaterial
           import com.google.gson.Gson
           import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
-          import java.text.SimpleDateFormat
-          import java.util.*
+          import java.util.UUID
           import java.util.concurrent.ConcurrentHashMap
           import java.util.concurrent.Executors
-
           class MainActivity : AppCompatActivity() {
               private var mqtt: MqttClient? = null
               private val gson = Gson()
@@ -977,28 +853,17 @@ jobs:
               private val lastSeen = ConcurrentHashMap<String, Long>()
               private val handler = Handler(Looper.getMainLooper())
               private fun col(id: Int) = ContextCompat.getColor(this, id)
-
               override fun onCreate(b: Bundle?) {
                   super.onCreate(b)
                   setContentView(R.layout.activity_main)
                   migrateMachines()
-
-                  findViewById<TextView>(R.id.tv_header_title).text =
-                      if (BuildConfig.IS_AGENT) "Cofferno Agent" else "Cofferno Пульт"
-                  findViewById<TextView>(R.id.tv_role_banner).text =
-                      if (BuildConfig.IS_AGENT)
-                          "АГЕНТ · ставьте на автомат · Telegram вшит"
-                      else
-                          "ПУЛЬТ · обновляйте смело · агент на машине не трогайте"
-                  findViewById<TextView>(R.id.tv_tg_status).text =
-                      if (Telegram.configured()) "Telegram: токен вшит OK"
-                      else "Telegram: нет secrets при сборке"
-
+                  findViewById<TextView>(R.id.tv_header_title).text = if (BuildConfig.IS_AGENT) "Cofferno Agent" else "Cofferno Operator"
+                  findViewById<TextView>(R.id.tv_role_banner).text = if (BuildConfig.IS_AGENT) "AGENT on machine" else "OPERATOR phone"
+                  findViewById<TextView>(R.id.tv_tg_status).text = if (Telegram.configured()) "Telegram: OK embedded" else "Telegram: set secrets BOT_TOKEN CHAT_ID"
                   val tS = findViewById<LinearLayout>(R.id.tab_sales)
                   val tM = findViewById<LinearLayout>(R.id.tab_manage)
                   val tA = findViewById<LinearLayout>(R.id.tab_agent)
                   val nav = findViewById<BottomNavigationView>(R.id.bottom_nav)
-
                   fun show(tab: Int) {
                       tS.visibility = if (tab == 0) View.VISIBLE else View.GONE
                       tM.visibility = if (tab == 1) View.VISIBLE else View.GONE
@@ -1009,51 +874,35 @@ jobs:
                           R.id.nav_sales -> show(0)
                           R.id.nav_manage -> show(1)
                           R.id.nav_agent -> show(2)
-                      }
-                      true
+                      }; true
                   }
-                  // Агент — сразу вкладка агента; пульт — продажи
-                  if (BuildConfig.IS_AGENT) {
-                      nav.selectedItemId = R.id.nav_agent
-                      show(2)
-                  } else show(0)
-
-                  val ms = getMachines()
-                  if (ms.isNotEmpty()) currentSerial = ms[0]
+                  if (BuildConfig.IS_AGENT) { nav.selectedItemId = R.id.nav_agent; show(2) } else show(0)
+                  val ms = getMachines(); if (ms.isNotEmpty()) currentSerial = ms[0]
                   updateHeader(); chips(); selector(); sales(); costs()
-
                   fun ltr(tv: TextView) {
                       tv.movementMethod = ScrollingMovementMethod.getInstance()
                       tv.textDirection = View.TEXT_DIRECTION_LTR
-                      tv.textAlignment = View.TEXT_ALIGNMENT_VIEW_START
                       tv.setOnTouchListener { v, e ->
                           v.parent.requestDisallowInterceptTouchEvent(true)
                           if (e.action == MotionEvent.ACTION_UP) v.parent.requestDisallowInterceptTouchEvent(false)
                           false
                       }
                   }
-                  ltr(findViewById(R.id.tv_coffeenet_logs))
-                  ltr(findViewById(R.id.tv_remote_logs_output))
-
+                  ltr(findViewById(R.id.tv_coffeenet_logs)); ltr(findViewById(R.id.tv_remote_logs_output))
                   findViewById<Button>(R.id.btn_detect_device_id).setOnClickListener {
                       Executors.newSingleThreadExecutor().execute {
                           getSharedPreferences("cofferno_agent", MODE_PRIVATE).edit().remove("levending_device_id").apply()
                           val id = LeVendingProbe.findDeviceId(this)
-                          runOnUiThread {
-                              findViewById<TextView>(R.id.tv_detected_device_id).text = id.ifBlank { "не найден" }
-                          }
+                          runOnUiThread { findViewById<TextView>(R.id.tv_detected_device_id).text = id.ifBlank { "—" } }
                       }
                   }
                   findViewById<Button>(R.id.btn_use_device_id).setOnClickListener {
                       val id = IdUtil.normalize(findViewById<TextView>(R.id.tv_detected_device_id).text.toString())
                       if (id.length < 2) return@setOnClickListener
                       getSharedPreferences("cofferno_agent", MODE_PRIVATE).edit().putString("custom_serial", id).apply()
-                      findViewById<EditText>(R.id.et_agent_serial).setText(id)
-                      addMachine(id)
+                      findViewById<EditText>(R.id.et_agent_serial).setText(id); addMachine(id)
                   }
-                  findViewById<Button>(R.id.btn_refresh_top).setOnClickListener {
-                      getMachines().forEach { cmd(it, "REQUEST_UPDATE") }
-                  }
+                  findViewById<Button>(R.id.btn_refresh_top).setOnClickListener { getMachines().forEach { cmd(it, "REQUEST_UPDATE") } }
                   findViewById<Button>(R.id.btn_add_machine).setOnClickListener {
                       addMachine(findViewById<EditText>(R.id.et_new_serial).text.toString())
                       findViewById<EditText>(R.id.et_new_serial).text.clear()
@@ -1066,100 +915,70 @@ jobs:
                       }
                   }
                   findViewById<Button>(R.id.btn_remote_scan_logs).setOnClickListener {
-                      if (currentSerial.isEmpty()) {
-                          Toast.makeText(this, "Выберите автомат", Toast.LENGTH_SHORT).show()
-                          return@setOnClickListener
-                      }
-                      findViewById<TextView>(R.id.tv_remote_logs_output).text =
-                          "Запрос отправлен.\nСмотрите Telegram — полный отчёт там.\nКраткий ответ MQTT ниже (если дойдёт)..."
+                      if (currentSerial.isEmpty()) { Toast.makeText(this, "Select machine", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+                      findViewById<TextView>(R.id.tv_remote_logs_output).text = "Request sent. Full report in Telegram."
                       cmd(currentSerial, "SCAN_LOGS")
-                      Toast.makeText(this, "Отчёт → Telegram", Toast.LENGTH_LONG).show()
+                      Toast.makeText(this, "Check Telegram", Toast.LENGTH_LONG).show()
                   }
                   findViewById<Button>(R.id.btn_copy_remote_logs).setOnClickListener {
                       val t = findViewById<TextView>(R.id.tv_remote_logs_output).text.toString()
-                      (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager)
-                          .setPrimaryClip(ClipData.newPlainText("log", t))
+                      (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("log", t))
                   }
                   findViewById<Button>(R.id.btn_save_all_costs).setOnClickListener { saveCosts(); sales() }
                   findViewById<Button>(R.id.btn_reset_counters).setOnClickListener {
                       if (currentSerial.isEmpty()) return@setOnClickListener
-                      AlertDialog.Builder(this).setMessage("Сброс [$currentSerial]?")
-                          .setPositiveButton("Да") { _, _ ->
-                              packets[currentSerial] = TelemetryPacket(currentSerial, drinks = mutableListOf())
-                              cmd(currentSerial, "RESET_COUNTERS")
-                              sales(); costs()
-                          }.setNegativeButton("Нет", null).show()
+                      AlertDialog.Builder(this).setMessage("Reset $currentSerial?")
+                          .setPositiveButton("Yes") { _, _ ->
+                              packets[currentSerial] = TelemetryPacket(currentSerial)
+                              cmd(currentSerial, "RESET_COUNTERS"); sales(); costs()
+                          }.setNegativeButton("No", null).show()
                   }
-
                   val ap = getSharedPreferences("cofferno_agent", MODE_PRIVATE)
                   val et = findViewById<EditText>(R.id.et_agent_serial)
-                  et.setText(
-                      IdUtil.normalize(ap.getString("custom_serial", "")).ifBlank {
-                          IdUtil.normalize(ap.getString("levending_device_id", ""))
-                      }.ifBlank { IdUtil.normalize(Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)) }
-                  )
+                  et.setText(IdUtil.normalize(ap.getString("custom_serial", "")).ifBlank {
+                      IdUtil.normalize(ap.getString("levending_device_id", ""))
+                  }.ifBlank { IdUtil.normalize(Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)) })
                   findViewById<Button>(R.id.btn_save_agent_serial).setOnClickListener {
-                      val s = IdUtil.normalize(et.text.toString())
-                      ap.edit().putString("custom_serial", s).apply()
-                      et.setText(s)
+                      val s = IdUtil.normalize(et.text.toString()); ap.edit().putString("custom_serial", s).apply(); et.setText(s)
                   }
-
                   val sw = findViewById<SwitchMaterial>(R.id.switch_agent)
                   val st = findViewById<TextView>(R.id.tv_agent_status)
-                  // На агенте по умолчанию служба включена
-                  if (BuildConfig.IS_AGENT && !ap.contains("agent_active"))
-                      ap.edit().putBoolean("agent_active", true).apply()
+                  if (BuildConfig.IS_AGENT && !ap.contains("agent_active")) ap.edit().putBoolean("agent_active", true).apply()
                   sw.isChecked = ap.getBoolean("agent_active", BuildConfig.IS_AGENT)
-                  st.text = if (sw.isChecked) "Служба вкл" else "Выкл"
                   sw.visibility = if (BuildConfig.IS_AGENT) View.VISIBLE else View.GONE
-                  if (!BuildConfig.IS_AGENT) st.text = "На пульте служба не нужна"
-
+                  st.text = if (!BuildConfig.IS_AGENT) "No service on operator" else if (sw.isChecked) "ON" else "OFF"
                   sw.setOnCheckedChangeListener { _, on ->
                       ap.edit().putBoolean("agent_active", on).apply()
                       if (on) {
                           val i = Intent(this, AgentService::class.java)
                           if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
-                          st.text = "Служба вкл"
-                          if (BuildConfig.IS_AGENT) handler.postDelayed({ moveTaskToBack(true) }, 500)
-                      } else {
-                          stopService(Intent(this, AgentService::class.java))
-                          st.text = "Выкл"
-                      }
+                          st.text = "ON"
+                          if (BuildConfig.IS_AGENT) handler.postDelayed({ moveTaskToBack(true) }, 400)
+                      } else { stopService(Intent(this, AgentService::class.java)); st.text = "OFF" }
                   }
-                  // автостарт агента
                   if (BuildConfig.IS_AGENT && sw.isChecked) {
                       val i = Intent(this, AgentService::class.java)
                       if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
                   }
-
                   findViewById<Button>(R.id.btn_scan_coffeenet).setOnClickListener {
                       val tv = findViewById<TextView>(R.id.tv_coffeenet_logs)
-                      tv.text = "Скан..."
+                      tv.text = "..."
                       Executors.newSingleThreadExecutor().execute {
                           val r = LeVendingProbe.fullScan(this)
-                          Telegram.send("📋 Локальный скан\n$r")
-                          runOnUiThread {
-                              tv.text = r
-                              Toast.makeText(this, "Дубль в Telegram", Toast.LENGTH_SHORT).show()
-                          }
+                          Telegram.send("Local scan\n$r")
+                          runOnUiThread { tv.text = r }
                       }
                   }
-
                   Executors.newSingleThreadExecutor().execute {
                       val id = LeVendingProbe.findDeviceId(this)
-                      runOnUiThread {
-                          findViewById<TextView>(R.id.tv_detected_device_id).text = id.ifBlank { "не найден" }
-                      }
+                      runOnUiThread { findViewById<TextView>(R.id.tv_detected_device_id).text = id.ifBlank { "—" } }
                   }
-
-                  // MQTT только на пульте (и опционально на агенте для cmd — агент в Service)
                   if (!BuildConfig.IS_AGENT) reconnectMqtt()
-
                   handler.post(object : Runnable {
                       override fun run() {
                           val tv = findViewById<TextView>(R.id.tv_status)
                           if (BuildConfig.IS_AGENT) {
-                              tv.text = if (Telegram.configured()) "Agent · TG OK" else "Agent · TG?"
+                              tv.text = if (Telegram.configured()) "Agent TG OK" else "Agent no TG secrets"
                               tv.setTextColor(col(R.color.green))
                           } else {
                               val m = getMachines()
@@ -1167,23 +986,20 @@ jobs:
                               val on = m.count { now - (lastSeen[it] ?: 0L) < 20000L }
                               when {
                                   !mqttOk -> { tv.text = "MQTT..."; tv.setTextColor(col(R.color.yellow)) }
-                                  m.isEmpty() -> { tv.text = "Добавьте ID"; tv.setTextColor(col(R.color.muted)) }
-                                  on == 0 -> { tv.text = "Офлайн 0/${m.size}"; tv.setTextColor(col(R.color.red)) }
-                                  else -> { tv.text = "В сети $on/${m.size}"; tv.setTextColor(col(R.color.green)) }
+                                  m.isEmpty() -> { tv.text = "Add ID"; tv.setTextColor(col(R.color.muted)) }
+                                  on == 0 -> { tv.text = "Offline 0/${m.size}"; tv.setTextColor(col(R.color.red)) }
+                                  else -> { tv.text = "Online $on/${m.size}"; tv.setTextColor(col(R.color.green)) }
                               }
                           }
                           handler.postDelayed(this, 2000)
                       }
                   })
               }
-
               private fun migrateMachines() {
                   val raw = getSharedPreferences("cofferno_app", MODE_PRIVATE).getString("machines_list", "") ?: ""
                   val n = raw.split(",").map { IdUtil.normalize(it) }.filter { it.isNotBlank() }.distinct()
-                  getSharedPreferences("cofferno_app", MODE_PRIVATE).edit()
-                      .putString("machines_list", n.joinToString(",")).apply()
+                  getSharedPreferences("cofferno_app", MODE_PRIVATE).edit().putString("machines_list", n.joinToString(",")).apply()
               }
-
               private fun reconnectMqtt() {
                   Executors.newSingleThreadExecutor().execute {
                       var bi = 0
@@ -1193,7 +1009,7 @@ jobs:
                               if (mqtt?.isConnected != true) {
                                   try { mqtt?.disconnect(); mqtt?.close() } catch (_: Exception) {}
                                   val br = brokers[bi++ % brokers.size]
-                                  mqtt = MqttClient(br, "Op${UUID.randomUUID().toString().take(10)}", MemoryPersistence())
+                                  mqtt = MqttClient(br, "Op" + UUID.randomUUID().toString().take(10), MemoryPersistence())
                                   mqtt!!.setCallback(object : MqttCallback {
                                       override fun connectionLost(c: Throwable?) { mqttOk = false }
                                       override fun messageArrived(topic: String?, message: MqttMessage?) {
@@ -1201,10 +1017,8 @@ jobs:
                                               val t = topic ?: return
                                               val payload = String(message?.payload ?: ByteArray(0), Charsets.UTF_8)
                                               val sn = IdUtil.normalize(t.split("/").getOrNull(1) ?: return)
-                                              if (t.endsWith("/logs")) {
-                                                  runOnUiThread {
-                                                      findViewById<TextView>(R.id.tv_remote_logs_output).text = payload
-                                                  }
+                                              if (t.endsWith("/logs")) runOnUiThread {
+                                                  findViewById<TextView>(R.id.tv_remote_logs_output).text = payload
                                               } else if (t.endsWith("/data")) {
                                                   val p = gson.fromJson(payload, TelemetryPacket::class.java)
                                                   val id = IdUtil.normalize(p.serial)
@@ -1216,11 +1030,7 @@ jobs:
                                       }
                                       override fun deliveryComplete(t: IMqttDeliveryToken?) {}
                                   })
-                                  mqtt!!.connect(MqttConnectOptions().apply {
-                                      isAutomaticReconnect = true
-                                      connectionTimeout = 20
-                                      keepAliveInterval = 30
-                                  })
+                                  mqtt!!.connect(MqttConnectOptions().apply { isAutomaticReconnect = true; connectionTimeout = 20 })
                                   mqtt!!.subscribe("cofferno/+/data", 1)
                                   mqtt!!.subscribe("cofferno/+/logs", 1)
                                   mqttOk = true
@@ -1230,65 +1040,49 @@ jobs:
                       }
                   }
               }
-
               private fun cmd(sn: String, c: String) {
                   val s = IdUtil.normalize(sn)
                   Executors.newSingleThreadExecutor().execute {
                       try {
-                          mqtt?.takeIf { it.isConnected }?.publish(
-                              "cofferno/$s/cmd",
-                              MqttMessage(c.toByteArray(Charsets.UTF_8)).apply { qos = 1 }
-                          )
+                          mqtt?.takeIf { it.isConnected }?.publish("cofferno/$s/cmd", MqttMessage(c.toByteArray(Charsets.UTF_8)).apply { qos = 1 })
                       } catch (_: Exception) {}
                   }
               }
-
               private fun addMachine(raw: String) {
-                  val s = IdUtil.normalize(raw)
-                  if (s.isEmpty()) return
+                  val s = IdUtil.normalize(raw); if (s.isEmpty()) return
                   val l = getMachines().toMutableList()
                   if (!l.contains(s)) {
                       l.add(s)
-                      getSharedPreferences("cofferno_app", MODE_PRIVATE).edit()
-                          .putString("machines_list", l.joinToString(",")).apply()
+                      getSharedPreferences("cofferno_app", MODE_PRIVATE).edit().putString("machines_list", l.joinToString(",")).apply()
                   }
-                  currentSerial = s
-                  updateHeader(); chips(); selector()
+                  currentSerial = s; updateHeader(); chips(); selector()
               }
-
               private fun updateHeader() {
                   val m = getMachines()
                   findViewById<TextView>(R.id.tv_active_machine).text = when {
-                      m.isEmpty() -> "нет машин"
-                      selectedFilter == "ALL" -> "все (${m.size})"
+                      m.isEmpty() -> "no machines"
+                      selectedFilter == "ALL" -> "all (${m.size})"
                       else -> "${name(selectedFilter)} ($selectedFilter)"
                   }
               }
-
               private fun chips() {
-                  val c = findViewById<LinearLayout>(R.id.ll_filter_chips)
-                  c.removeAllViews()
-                  val m = getMachines()
-                  if (m.isEmpty()) return
+                  val c = findViewById<LinearLayout>(R.id.ll_filter_chips); c.removeAllViews()
+                  val m = getMachines(); if (m.isEmpty()) return
                   fun chip(lab: String, sn: String) {
                       c.addView(Button(this).apply {
                           text = lab; textSize = 12f
                           setBackgroundColor(if (selectedFilter == sn) col(R.color.accent) else col(R.color.card))
                           setTextColor(if (selectedFilter == sn) col(R.color.dark) else col(R.color.white))
                           setOnClickListener {
-                              selectedFilter = sn
-                              if (sn != "ALL") currentSerial = sn
+                              selectedFilter = sn; if (sn != "ALL") currentSerial = sn
                               updateHeader(); chips(); selector(); sales()
                           }
                       })
                   }
-                  chip("ВСЕ", "ALL")
-                  m.forEach { chip(name(it), it) }
+                  chip("ALL", "ALL"); m.forEach { chip(name(it), it) }
               }
-
               private fun selector() {
-                  val c = findViewById<LinearLayout>(R.id.ll_machine_selector)
-                  c.removeAllViews()
+                  val c = findViewById<LinearLayout>(R.id.ll_machine_selector); c.removeAllViews()
                   getMachines().forEach { sn ->
                       val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
                       row.addView(Button(this).apply {
@@ -1299,12 +1093,10 @@ jobs:
                           setOnClickListener { currentSerial = sn; selector() }
                       })
                       row.addView(Button(this).apply {
-                          text = "X"
-                          setBackgroundColor(col(R.color.red)); setTextColor(col(R.color.white))
+                          text = "X"; setBackgroundColor(col(R.color.red)); setTextColor(col(R.color.white))
                           setOnClickListener {
                               val l = getMachines().toMutableList().also { it.remove(sn) }
-                              getSharedPreferences("cofferno_app", MODE_PRIVATE).edit()
-                                  .putString("machines_list", l.joinToString(",")).apply()
+                              getSharedPreferences("cofferno_app", MODE_PRIVATE).edit().putString("machines_list", l.joinToString(",")).apply()
                               packets.remove(sn); lastSeen.remove(sn)
                               if (currentSerial == sn) currentSerial = getMachines().firstOrNull() ?: ""
                               updateHeader(); chips(); selector(); sales()
@@ -1313,38 +1105,31 @@ jobs:
                       c.addView(row)
                   }
               }
-
               private fun sales() {
-                  val dc = findViewById<LinearLayout>(R.id.ll_drinks_container)
-                  dc.removeAllViews()
+                  val dc = findViewById<LinearLayout>(R.id.ll_drinks_container); dc.removeAllViews()
                   val m = getMachines()
-                  val pk = if (selectedFilter == "ALL") packets.filterKeys { m.contains(it) }.values
-                  else listOfNotNull(packets[selectedFilter])
+                  val pk = if (selectedFilter == "ALL") packets.filterKeys { m.contains(it) }.values else listOfNotNull(packets[selectedFilter])
                   var rev = 0; var prof = 0; var cups = 0
                   val map = linkedMapOf<String, MergedDrink>()
                   pk.forEach { p -> p.drinks.forEach { d ->
                       val cost = getCost(d.name)
                       val e = map[d.name]
-                      if (e == null) map[d.name] = MergedDrink(d.name, d.count, d.price, cost)
-                      else e.count += d.count
+                      if (e == null) map[d.name] = MergedDrink(d.name, d.count, d.price, cost) else e.count += d.count
                   }}
                   map.values.forEach { d ->
-                      val r = d.count * d.price
-                      val pr = d.count * (d.price - d.cost)
+                      val r = d.count * d.price; val pr = d.count * (d.price - d.cost)
                       rev += r; prof += pr; cups += d.count
                       dc.addView(TextView(this).apply {
-                          text = "${d.name} — ${d.count} шт. · ${d.price}₽ · выр $r · приб $pr"
-                          setTextColor(col(R.color.white)); setPadding(0, 12, 0, 12); textSize = 14f
+                          text = "${d.name} x${d.count} @${d.price} = $r (profit $pr)"
+                          setTextColor(col(R.color.white)); setPadding(0, 10, 0, 10)
                       })
                   }
-                  findViewById<TextView>(R.id.tv_total_revenue).text = "$rev ₽"
-                  findViewById<TextView>(R.id.tv_total_profit).text = "$prof ₽ (прибыль)"
-                  findViewById<TextView>(R.id.tv_total_cups).text = "Стаканов: $cups"
+                  findViewById<TextView>(R.id.tv_total_revenue).text = "$rev"
+                  findViewById<TextView>(R.id.tv_total_profit).text = "$prof profit"
+                  findViewById<TextView>(R.id.tv_total_cups).text = "Cups: $cups"
               }
-
               private fun costs() {
-                  val b = findViewById<LinearLayout>(R.id.ll_costs_container)
-                  b.removeAllViews()
+                  val b = findViewById<LinearLayout>(R.id.ll_costs_container); b.removeAllViews()
                   val empty = findViewById<TextView>(R.id.tv_costs_empty)
                   val names = linkedSetOf<String>()
                   packets.values.forEach { p -> p.drinks.forEach { names.add(it.name) } }
@@ -1356,7 +1141,6 @@ jobs:
                       })
                   }
               }
-
               private fun saveCosts() {
                   val b = findViewById<LinearLayout>(R.id.ll_costs_container)
                   val ed = getSharedPreferences("cofferno_costs", MODE_PRIVATE).edit()
@@ -1366,17 +1150,19 @@ jobs:
                   }
                   ed.apply()
               }
-
               private fun getCost(n: String) = getSharedPreferences("cofferno_costs", MODE_PRIVATE).getInt("cost_$n", 0)
               private fun getMachines() =
                   (getSharedPreferences("cofferno_app", MODE_PRIVATE).getString("machines_list", "") ?: "")
                       .split(",").map { IdUtil.normalize(it) }.filter { it.isNotBlank() }.distinct()
               private fun name(s: String) =
-                  getSharedPreferences("cofferno_names", MODE_PRIVATE).getString("name_$s", null) ?: "Автомат $s"
+                  getSharedPreferences("cofferno_names", MODE_PRIVATE).getString("name_$s", null) ?: "M $s"
           }
           EOF
 
-          echo "Generated role=$ROLE app=$APP_ID tg=${#BT}"
+          echo "OK role=$ROLE app=$APP_ID isAgent=$IS_AGENT"
+          test -f app/build.gradle
+          grep -n "IS_AGENT" app/build.gradle
+          grep -n "applicationId" app/build.gradle
 
       - name: Build APK
         run: |
@@ -1384,7 +1170,7 @@ jobs:
           gradle assembleDebug --no-daemon 2>&1 | tee build.log
           exit ${PIPESTATUS[0]}
 
-      - name: Upload ${{ matrix.role }} APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -1393,14 +1179,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Telegram ${{ matrix.role }}
+      - name: Telegram APK
         if: success()
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
-          [ -z "$BOT_TOKEN" ] && exit 0
+          if [ -z "${BOT_TOKEN:-}" ] || [ -z "${CHAT_ID:-}" ]; then
+            echo "No secrets for send"; exit 0
+          fi
           curl -s -X POST -F chat_id="$CHAT_ID" -F document=@"$APK" \
-            -F caption="Cofferno 7.5.5 ${{ matrix.role }} (TG+MQTT, ID без нулей)" \
-            "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
+            -F caption="Cofferno 7.5.5 ${{ matrix.role }}" \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" || true
