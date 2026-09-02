@@ -64,8 +64,8 @@ jobs:
                   applicationId "com.coffee.telemetry"
                   minSdk 23
                   targetSdk 34
-                  versionCode 91
-                  versionName "7.4.7"
+                  versionCode 93
+                  versionName "7.5.1"
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
@@ -344,7 +344,7 @@ jobs:
                                   <TextView
                                       android:layout_width="match_parent"
                                       android:layout_height="wrap_content"
-                                      android:text="Удаленная диагностика логов"
+                                      android:text="Удаленная диагностика (coffeeNet.db)"
                                       android:textColor="@color/accent"
                                       android:textSize="13sp"
                                       android:textStyle="bold"
@@ -356,7 +356,7 @@ jobs:
                                       <Button android:id="@+id/btn_remote_scan_logs"
                                           android:layout_width="0dp" android:layout_height="wrap_content"
                                           android:layout_weight="1" android:backgroundTint="@color/blue"
-                                          android:text="Запросить логи" android:textColor="@color/white"
+                                          android:text="Запросить отчет БД" android:textColor="@color/white"
                                           android:textSize="12sp"/>
                                       <Button android:id="@+id/btn_copy_remote_logs"
                                           android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -369,7 +369,7 @@ jobs:
                                       android:layout_marginTop="10dp" android:background="#000000"
                                       android:fadeScrollbars="false" android:gravity="top|start"
                                       android:overScrollMode="always" android:padding="10dp"
-                                      android:scrollbars="vertical" android:text="Выберите автомат и нажмите 'Запросить логи'..."
+                                      android:scrollbars="vertical" android:text="Выберите автомат и нажмите 'Запросить отчет БД'..."
                                       android:textColor="#00FF66" android:textIsSelectable="true"
                                       android:textSize="11sp"/>
                               </LinearLayout>
@@ -418,15 +418,15 @@ jobs:
                                   <Button android:id="@+id/btn_remote_reboot"
                                       android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:layout_marginBottom="8dp" android:backgroundTint="@color/orange"
-                                      android:text="Перезагрузка" android:textColor="@color/white"/>
+                                      android:text="Перезагрузка автомата" android:textColor="@color/white"/>
                                   <Button android:id="@+id/btn_remote_flush"
                                       android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:layout_marginBottom="8dp" android:backgroundTint="@color/blue"
-                                      android:text="Промывка" android:textColor="@color/white"/>
+                                      android:text="Запуск промывки / тестов" android:textColor="@color/white"/>
                                   <Button android:id="@+id/btn_remote_lock"
                                       android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:backgroundTint="@color/red"
-                                      android:text="Блокировка" android:textColor="@color/white"/>
+                                      android:text="Сервисный режим / Блокировка" android:textColor="@color/white"/>
                               </LinearLayout>
                           </com.google.android.material.card.MaterialCardView>
                       </LinearLayout>
@@ -489,7 +489,7 @@ jobs:
                                   <Button android:id="@+id/btn_scan_coffeenet"
                                       android:layout_width="match_parent" android:layout_height="wrap_content"
                                       android:backgroundTint="@color/blue"
-                                      android:text="Сканировать логи локально" android:textColor="@color/white"/>
+                                      android:text="Диагностика coffeeNet.db" android:textColor="@color/white"/>
                                   <TextView android:id="@+id/tv_coffeenet_logs"
                                       android:layout_width="match_parent" android:layout_height="480dp"
                                       android:layout_marginTop="12dp" android:background="#000000"
@@ -551,12 +551,10 @@ jobs:
           package com.coffee.telemetry
 
           import android.content.Context
-          import android.net.Uri
-          import android.os.Environment
+          import android.database.sqlite.SQLiteDatabase
           import java.io.BufferedReader
           import java.io.File
           import java.io.InputStreamReader
-          import java.net.URLDecoder
           import java.text.SimpleDateFormat
           import java.util.Date
           import java.util.Locale
@@ -568,46 +566,6 @@ jobs:
                   Pattern.compile("deviceid=([0-9]{6,18})", Pattern.CASE_INSENSITIVE),
                   Pattern.compile("deviceId=([0-9]{6,18})", Pattern.CASE_INSENSITIVE),
                   Pattern.compile("device_id[=:]([0-9]{6,18})", Pattern.CASE_INSENSITIVE)
-              )
-
-              private val drinkPatterns = listOf(
-                  Pattern.compile("""(?i)двойн\w*\s*эспрессо""") to "Двойной Эспрессо",
-                  Pattern.compile("""(?i)двойн\w*\s*американо""") to "Двойной Американо",
-                  Pattern.compile("""(?i)американо\s*с\s*молоком""") to "Американо с молоком",
-                  Pattern.compile("""(?i)кофе\s*с\s*шоколадом""") to "Кофе с шоколадом",
-                  Pattern.compile("""(?i)банан\s*в\s*шоколаде""") to "Банан в шоколаде",
-                  Pattern.compile("""(?i)горячий\s*шоколад""") to "Горячий шоколад",
-                  Pattern.compile("""(?i)флэт\s*уайт|флет\s*уайт""") to "Флэт Уайт",
-                  Pattern.compile("""(?i)мокачино|моккачино""") to "Мокачино",
-                  Pattern.compile("""(?i)капуч+ино""") to "Капучино",
-                  Pattern.compile("""(?i)латте""") to "Латте",
-                  Pattern.compile("""(?i)американо""") to "Американо",
-                  Pattern.compile("""(?i)какао""") to "Какао",
-                  Pattern.compile("""(?i)(?<![a-zа-я])раф(?![a-zа-я])""") to "Раф",
-                  Pattern.compile("""(?i)эспрессо""") to "Эспрессо",
-                  Pattern.compile("""(?i)double\s*espresso|doppio""") to "Двойной Эспрессо",
-                  Pattern.compile("""(?i)double\s*americano""") to "Двойной Американо",
-                  Pattern.compile("""(?i)americano\s*with\s*milk""") to "Американо с молоком",
-                  Pattern.compile("""(?i)coffee\s*with\s*chocolate""") to "Кофе с шоколадом",
-                  Pattern.compile("""(?i)banana\s*chocolate""") to "Банан в шоколаде",
-                  Pattern.compile("""(?i)hot\s*chocolate""") to "Горячий шоколад",
-                  Pattern.compile("""(?i)flat\s*white""") to "Флэт Уайт",
-                  Pattern.compile("""(?i)cappuccino""") to "Капучино",
-                  Pattern.compile("""(?i)latte""") to "Латте",
-                  Pattern.compile("""(?i)americano""") to "Американо",
-                  Pattern.compile("""(?i)cocoa""") to "Какао",
-                  Pattern.compile("""(?i)raf""") to "Раф",
-                  Pattern.compile("""(?i)espresso""") to "Эспрессо"
-              )
-
-              private val pricePatterns = arrayOf(
-                  Pattern.compile("""(?i)(?:goodsPrice|salePrice|payAmount|price|amount|money|pay|sum|total|cost|fee|цена|сумма|стоимость)[=:\s]+([0-9]{2,5})(?:\.[0-9]+)?"""),
-                  Pattern.compile("""(?i)["'](?:goodsPrice|salePrice|payAmount|price|amount)["']\s*:\s*([0-9]{2,5})(?:\.[0-9]+)?""")
-              )
-
-              private val goodsNamePatterns = arrayOf(
-                  Pattern.compile("""(?i)(?:goodsName|productName|drinkName|drink|goods|product|title|name)=([^&\s]{2,80})"""),
-                  Pattern.compile("""(?i)["'](?:goodsName|productName|drinkName|name)["']\s*:\s*["']([^"']{2,80})["']""")
               )
 
               fun findDeviceIdFromLogLine(line: String): String? {
@@ -622,198 +580,154 @@ jobs:
                   val prefs = context.getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
                   val saved = prefs.getString("levending_device_id", "") ?: ""
                   if (saved.isNotBlank()) return saved
-                  val fromLog = scrapeDeviceIdFromLogcat()
-                  if (fromLog != null) {
-                      prefs.edit().putString("levending_device_id", fromLog).apply()
-                      return fromLog
-                  }
-                  return ""
-              }
-
-              fun scrapeDeviceIdFromLogcat(): String? {
                   try {
                       val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "500"))
                       val reader = BufferedReader(InputStreamReader(process.inputStream))
                       while (true) {
                           val line = reader.readLine() ?: break
                           val id = findDeviceIdFromLogLine(line)
-                          if (id != null) return id
-                      }
-                  } catch (_: Exception) {}
-                  return null
-              }
-
-              fun isApiSaleSuccess(line: String): Boolean {
-                  val l = line.lowercase()
-                  return l.contains("vmsalesuccess") ||
-                      l.contains("sendoutgoodssuccess") ||
-                      (l.contains("ylapi.levending") && (l.contains("sale") || l.contains("shipment") || l.contains("outgoods")))
-              }
-
-              fun isPrimarySaleMarker(line: String): Boolean {
-                  if (isApiSaleSuccess(line)) return true
-                  val l = line.lowercase()
-                  if (l.contains("makedrink") || l.contains("makecoffee") || l.contains("alonedropcup")) {
-                      return line.contains("START") || line.contains("Displayed") || line.contains("cmp=")
-                  }
-                  return false
-              }
-
-              fun isDropCupMarker(line: String): Boolean =
-                  line.contains("AloneDropCupActivity") && (line.contains("Displayed") || line.contains("START"))
-
-              fun isSaleMarker(line: String): Boolean {
-                  val l = line.lowercase()
-                  if (isApiSaleSuccess(line)) return true
-
-                  if (l.contains("vmcoffeen") || l.contains("vmcoffeestandard") || l.contains("levending")) {
-                      if (l.contains("makedrink") || l.contains("makecoffee") || l.contains("dropcup") ||
-                          l.contains("payactivity") || l.contains("orderactivity") || l.contains("goodsdetail") ||
-                          l.contains("dispense") || l.contains("shipment") || l.contains("outgoods")) {
-                          return true
-                      }
-                  }
-                  if (l.contains("zjhttp") && (l.contains("sale") || l.contains("order") || l.contains("goods") || l.contains("pay") || l.contains("shipment"))) {
-                      return true
-                  }
-                  return false
-              }
-
-              fun isSystemNoise(line: String): Boolean {
-                  val l = line.lowercase()
-                  return l.contains("bufferqueueproducer") ||
-                      l.contains("sf_frame_dur") ||
-                      l.contains("inputdispatcher") ||
-                      l.contains("win death") ||
-                      l.contains("am_finish_activity") ||
-                      l.contains("am_pause_activity") ||
-                      l.contains("am_destroy_activity") ||
-                      l.contains("am_focused_activity")
-              }
-
-              fun extractDrinkName(line: String): String? {
-                  for (p in goodsNamePatterns) {
-                      val m = p.matcher(line)
-                      if (m.find()) {
-                          var raw = m.group(1) ?: continue
-                          try { raw = URLDecoder.decode(raw.replace("+", " "), "UTF-8") } catch (_: Exception) { raw = Uri.decode(raw).replace("+", " ") }
-                          raw = raw.trim()
-                          if (raw.isNotBlank() && raw.length in 2..60) {
-                              for ((pat, ru) in drinkPatterns) {
-                                  if (pat.matcher(raw).find()) return ru
-                              }
-                              return raw
+                          if (id != null) {
+                              prefs.edit().putString("levending_device_id", id).apply()
+                              return id
                           }
                       }
-                  }
-                  for ((pat, ru) in drinkPatterns) {
-                      if (pat.matcher(line).find()) return ru
-                  }
-                  return null
+                  } catch (_: Exception) {}
+                  return ""
               }
 
-              fun extractPrice(line: String): Int? {
-                  for (p in pricePatterns) {
-                      val m = p.matcher(line)
-                      if (m.find()) {
-                          val v = m.group(1)?.toDoubleOrNull()?.toInt() ?: continue
-                          if (v in 10..2000) return v
+              private fun copyCoffeeNetDb(context: Context, target: File): Boolean {
+                  val possiblePaths = arrayOf(
+                      "/data/data/com.le.vmcoffeestandard/databases/coffeeNet.db",
+                      "/data/data/com.le.vmcoffeestandard/databases/coffeeNet",
+                      "/data/data/com.le.vmcoffeeen/databases/coffeeNet.db",
+                      "/data/data/com.le.vmcoffeeen/databases/coffeeNet"
+                  )
+
+                  for (p in possiblePaths) {
+                      try {
+                          val cmd = "su -c 'if [ -f $p ]; then cp $p ${target.absolutePath} && chmod 666 ${target.absolutePath}; fi'"
+                          val proc = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
+                          proc.waitFor()
+                          if (target.exists() && target.length() > 0L) return true
+                      } catch (_: Exception) {}
+                  }
+
+                  // Fallback: поиск любого *.db если путь смещен
+                  try {
+                      val cmdFallback = "su -c 'for f in /data/data/com.le.*/databases/*.db; do cp \$f ${target.absolutePath} && chmod 666 ${target.absolutePath} && break; done'"
+                      val proc = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmdFallback))
+                      proc.waitFor()
+                      if (target.exists() && target.length() > 0L) return true
+                  } catch (_: Exception) {}
+
+                  return false
+              }
+
+              fun extractSalesFromDatabase(context: Context): List<DrinkItem>? {
+                  val tempDb = File(context.cacheDir, "temp_coffeeNet.db")
+                  try {
+                      if (!copyCoffeeNetDb(context, tempDb)) return null
+
+                      val db = SQLiteDatabase.openDatabase(tempDb.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                      val result = mutableListOf<DrinkItem>()
+
+                      // 1. Извлекаем подтвержденные продажи
+                      val cursor = db.rawQuery(
+                          "SELECT coffeeName, price, count(*) as cnt FROM salesstatistical WHERE saleType = 1 GROUP BY coffeeName, price",
+                          null
+                      )
+                      var idx = 0
+                      while (cursor.moveToNext()) {
+                          val name = cursor.getString(0) ?: "Напиток"
+                          val price = cursor.getDouble(1).toInt()
+                          val count = cursor.getInt(2)
+                          result.add(DrinkItem(idx++, name, count, price, 0))
                       }
+                      cursor.close()
+
+                      // 2. Если продаж ещё нет — подтягиваем меню автомата из таблицы Coffee!
+                      if (result.isEmpty()) {
+                          try {
+                              val menuCursor = db.rawQuery("SELECT coffeeName, price FROM coffee", null)
+                              while (menuCursor.moveToNext()) {
+                                  val name = menuCursor.getString(0) ?: continue
+                                  val price = menuCursor.getDouble(1).toInt()
+                                  result.add(DrinkItem(idx++, name, 0, price, 0))
+                              }
+                              menuCursor.close()
+                          } catch (_: Exception) {}
+                      }
+
+                      db.close()
+                      tempDb.delete()
+                      return result
+                  } catch (_: Exception) {
+                      tempDb.delete()
                   }
                   return null
-              }
-
-              fun extractOrderId(line: String): String? {
-                  val m = Pattern.compile("""(?i)orderid=([0-9]{6,32})""").matcher(line)
-                  return if (m.find()) m.group(1) else null
               }
 
               fun fullScan(context: Context): String {
                   val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-                  val sb = StringBuilder("=== COFFERNO ОТЧЕТ [$timeStr] ===\n")
+                  val sb = StringBuilder("=== COFFERNO [coffeeNet.db] [$timeStr] ===\n")
                   val dev = findDeviceId(context)
-                  sb.append("ID автомата: ").append(if (dev.isBlank()) "НЕ ОПРЕДЕЛЕН" else dev).append("\n\n")
+                  sb.append("Device ID: ").append(if (dev.isBlank()) "НЕ ОПРЕДЕЛЕН" else dev).append("\n\n")
 
+                  val tempDb = File(context.cacheDir, "diag_coffeeNet.db")
                   try {
-                      val pkgs = context.packageManager.getInstalledPackages(0)
-                      sb.append("--- ПРИЛОЖЕНИЯ АВТОМАТА ---\n")
-                      for (p in pkgs) {
-                          val n = p.packageName.lowercase()
-                          if (n.contains("le.vm") || n.contains("vending") || n.contains("coffee") || n.contains("ylpush") || n.contains("zj"))
-                              sb.append(" • ").append(p.packageName).append("\n")
-                      }
-                  } catch (e: Exception) { sb.append("Пакеты: ").append(e.message).append("\n") }
+                      if (copyCoffeeNetDb(context, tempDb)) {
+                          sb.append("✅ БАЗА coffeeNet.db НАЙДЕНА (").append(tempDb.length() / 1024).append(" KB)\n\n")
+                          val db = SQLiteDatabase.openDatabase(tempDb.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
 
-                  sb.append("\n--- ПОИСК ФАЙЛОВ ЛОГОВ ---\n")
-                  val root = Environment.getExternalStorageDirectory()
-                  val logDirs = arrayOf(
-                      File(root, "vm_log"),
-                      File(root, "levending"),
-                      File(root, "Download"),
-                      File("/sdcard/vm_log"),
-                      File("/sdcard/Download"),
-                      File(root, "Android/data/com.le.vmcoffeestandard/files")
-                  )
-
-                  val foundFiles = mutableListOf<File>()
-                  for (dir in logDirs) {
-                      if (dir.exists() && dir.isDirectory) {
-                          dir.listFiles()?.forEach { file ->
-                              if (file.isFile && (file.name.endsWith(".txt") || file.name.endsWith(".log") || file.name.contains("log", ignoreCase = true))) {
-                                  foundFiles.add(file)
-                              }
+                          // Итог
+                          val sumCursor = db.rawQuery("SELECT count(*), sum(price) FROM salesstatistical WHERE saleType = 1", null)
+                          if (sumCursor.moveToNext()) {
+                              val totalCups = sumCursor.getInt(0)
+                              val totalMoney = sumCursor.getDouble(1)
+                              sb.append("📊 Всего приготовлено: ").append(totalCups).append(" стаканов\n")
+                              sb.append("💰 Суммарная выручка: ").append(totalMoney.toInt()).append(" ₽\n\n")
                           }
-                      }
-                  }
+                          sumCursor.close()
 
-                  foundFiles.sortByDescending { it.lastModified() }
-                  val newestLogFile = foundFiles.firstOrNull()
-
-                  if (newestLogFile != null) {
-                      sb.append("📄 Извлечено из файла: ${newestLogFile.name} (${newestLogFile.length() / 1024} KB)\n\n")
-                      try {
-                          val lines = newestLogFile.readLines()
-                          val tail = lines.takeLast(35).joinToString("\n")
-                          sb.append(tail).append("\n")
-                      } catch (e: Exception) {
-                          sb.append("Ошибка чтения файла: ").append(e.message).append("\n")
-                      }
-                  } else {
-                      sb.append("Файлы логов .txt/.log на SD-карте не обнаружены.\n")
-                  }
-
-                  sb.append("\n--- СИСТЕМНЫЙ LOGCAT ---\n")
-                  var reader: BufferedReader? = null
-                  try {
-                      val p = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "800"))
-                      reader = BufferedReader(InputStreamReader(p.inputStream))
-                  } catch (_: Exception) {
-                      try {
-                          val pRoot = Runtime.getRuntime().exec(arrayOf("su", "-c", "logcat -d -t 800"))
-                          reader = BufferedReader(InputStreamReader(pRoot.inputStream))
-                      } catch (_: Exception) {}
-                  }
-
-                  if (reader != null) {
-                      try {
-                          var shown = 0
-                          while (true) {
-                              val line = reader.readLine() ?: break
-                              if (isSystemNoise(line)) continue
-
-                              val interesting = isSaleMarker(line) || findDeviceIdFromLogLine(line) != null ||
-                                  line.contains("zjhttp", true) || line.contains("ylapi", true) ||
-                                  extractDrinkName(line) != null || extractPrice(line) != null
-
-                              if (interesting) {
-                                  sb.append(if (line.length > 220) line.substring(0, 220) + "..." else line).append("\n")
-                                  if (++shown >= 40) break
+                          // Последние продажи
+                          val c = db.rawQuery("SELECT coffeeName, price, time, payWay FROM salesstatistical WHERE saleType = 1 ORDER BY id DESC LIMIT 25", null)
+                          sb.append("--- ПОСЛЕДНИЕ ЧЕКИ ИЗ БАЗЫ ---\n")
+                          var count = 0
+                          while (c.moveToNext()) {
+                              val name = c.getString(0)
+                              val price = c.getDouble(1).toInt()
+                              val time = c.getString(2)
+                              val pay = when (c.getInt(3)) {
+                                  1 -> "Наличные"
+                                  4, 7 -> "Безнал"
+                                  in 32..39 -> "Терминал (MDB)"
+                                  0 -> "Тест/Беспл."
+                                  else -> "Оплата"
                               }
+                              sb.append("☕ $time | $name | $price ₽ | $pay\n")
+                              count++
                           }
-                          if (shown == 0) sb.append("Событий приготовления в буфере logcat пока нет.\n")
-                      } catch (e: Exception) { sb.append("Ошибка logcat: ").append(e.message).append("\n") }
-                  } else {
-                      sb.append("Logcat недоступен в данной сессии.\n")
+                          c.close()
+                          if (count == 0) sb.append("В базе пока нет записей о продажах.\n")
+
+                          // Меню напитков
+                          try {
+                              val m = db.rawQuery("SELECT coffeeName, price FROM coffee LIMIT 15", null)
+                              sb.append("\n--- НАСТРОЕННЫЕ НАПИТКИ В АВТОМАТЕ ---\n")
+                              while (m.moveToNext()) {
+                                  sb.append(" • ").append(m.getString(0)).append(" — ").append(m.getDouble(1).toInt()).append(" ₽\n")
+                              }
+                              m.close()
+                          } catch (_: Exception) {}
+
+                          db.close()
+                      } else {
+                          sb.append("⚠️ База coffeeNet.db не скопирована. Убедитесь, что приложению предоставлены Root-права (SU).\n")
+                      }
+                  } catch (e: Exception) {
+                      sb.append("Ошибка чтения БД: ").append(e.message).append("\n")
+                  } finally {
+                      tempDb.delete()
                   }
 
                   sb.append("\n=== КОНЕЦ ОТЧЕТА ===")
@@ -840,8 +754,6 @@ jobs:
           import com.google.gson.reflect.TypeToken
           import org.eclipse.paho.client.mqttv3.*
           import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
-          import java.io.BufferedReader
-          import java.io.InputStreamReader
           import java.util.UUID
           import java.util.concurrent.Executors
           import java.util.concurrent.ScheduledExecutorService
@@ -856,14 +768,7 @@ jobs:
               private var sched: ScheduledExecutorService? = null
               
               private val loopExecutor = Executors.newSingleThreadExecutor()
-              private val logcatExecutor = Executors.newSingleThreadExecutor()
               private val commandExecutor = Executors.newCachedThreadPool()
-
-              private var lastSaleTs = 0L
-              private var pendingName = ""
-              private var pendingPrice = 0
-              private var pendingMetaTs = 0L
-              private var lastOrderId = ""
 
               override fun onBind(intent: Intent?): IBinder? = null
 
@@ -875,7 +780,7 @@ jobs:
                           ?.createNotificationChannel(NotificationChannel(ch, "Агент Cofferno", NotificationManager.IMPORTANCE_LOW))
                   val n = NotificationCompat.Builder(this, ch)
                       .setContentTitle("Cofferno LV-307")
-                      .setContentText("Служба телеметрии и учета продаж А+Б")
+                      .setContentText("Служба телеметрии и прямого учета coffeeNet.db")
                       .setSmallIcon(R.drawable.ic_app_icon).setOngoing(true).build()
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                       startForeground(101, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -895,7 +800,6 @@ jobs:
                   } catch (_: Exception) {}
 
                   startAgentLoop()
-                  startSaleInterceptor()
               }
 
               private fun prefs() = getSharedPreferences("cofferno_agent", Context.MODE_PRIVATE)
@@ -915,6 +819,13 @@ jobs:
               }
 
               private fun loadDrinks(): MutableList<DrinkItem> {
+                  // Прямое чтение coffeeNet.db
+                  val fromDb = LeVendingProbe.extractSalesFromDatabase(this)
+                  if (fromDb != null && fromDb.isNotEmpty()) {
+                      prefs().edit().putString("drinks_json", gson.toJson(fromDb)).apply()
+                      return fromDb.toMutableList()
+                  }
+
                   val json = prefs().getString("drinks_json", "")
                   if (!json.isNullOrEmpty()) try {
                       val t = object : TypeToken<MutableList<DrinkItem>>() {}.type
@@ -922,74 +833,6 @@ jobs:
                       if (l != null) return l
                   } catch (_: Exception) {}
                   return mutableListOf()
-              }
-
-              private fun saveDrinks(list: List<DrinkItem>) {
-                  prefs().edit().putString("drinks_json", gson.toJson(list)).apply()
-              }
-
-              private fun registerDrinkSale(name: String, price: Int) {
-                  val drinks = loadDrinks()
-                  val found = drinks.firstOrNull { it.name.equals(name, ignoreCase = true) }
-                  val finalPrice = if (price > 0) price else found?.price ?: 0
-
-                  if (found != null) {
-                      found.count++
-                      if (finalPrice > 0) found.price = finalPrice
-                  } else {
-                      drinks.add(DrinkItem(drinks.size, name, 1, finalPrice, 0))
-                  }
-                  saveDrinks(drinks)
-                  prefs().edit().putString("last_sale_name", name).putInt("last_sale_price", finalPrice)
-                      .putLong("last_sale_at", System.currentTimeMillis()).apply()
-                  sendHeartbeat()
-              }
-
-              private fun startSaleInterceptor() {
-                  logcatExecutor.execute {
-                      try {
-                          val r = BufferedReader(InputStreamReader(
-                              Runtime.getRuntime().exec(arrayOf("logcat", "-v", "time")).inputStream))
-                          while (wakeLock?.isHeld == true) {
-                              val line = r.readLine() ?: break
-                              val now = System.currentTimeMillis()
-
-                              LeVendingProbe.findDeviceIdFromLogLine(line)?.let { dev ->
-                                  val p = prefs()
-                                  val cleanDev = dev.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "")
-                                  if (p.getString("levending_device_id", "") != cleanDev) {
-                                      val ed = p.edit().putString("levending_device_id", cleanDev)
-                                      if (p.getString("custom_serial", "").isNullOrBlank()) ed.putString("custom_serial", cleanDev)
-                                      ed.apply()
-                                  }
-                              }
-
-                              if (line.contains("ZJHTTP", true) || line.contains("ylapi", true) ||
-                                  line.contains("MakeDrink", true) || line.contains("AloneDropCup", true)) {
-                                  LeVendingProbe.extractDrinkName(line)?.let { pendingName = it; pendingMetaTs = now }
-                                  LeVendingProbe.extractPrice(line)?.let { pendingPrice = it; pendingMetaTs = now }
-                              }
-
-                              val orderId = LeVendingProbe.extractOrderId(line)
-                              val apiSale = LeVendingProbe.isApiSaleSuccess(line)
-                              val actSale = LeVendingProbe.isPrimarySaleMarker(line) || LeVendingProbe.isDropCupMarker(line)
-
-                              if (apiSale || actSale) {
-                                  val dupOrder = !orderId.isNullOrBlank() && orderId == lastOrderId
-                                  val coolDown = now - lastSaleTs <= 20000L
-                                  if (!dupOrder && !coolDown) {
-                                      lastSaleTs = now
-                                      if (!orderId.isNullOrBlank()) lastOrderId = orderId
-
-                                      val fresh = (now - pendingMetaTs) < 120000L
-                                      val drink = if (fresh && pendingName.isNotBlank()) pendingName else "Напиток"
-                                      val price = if (fresh && pendingPrice > 0) pendingPrice else 0
-                                      registerDrinkSale(drink, price)
-                                  }
-                              }
-                          }
-                      } catch (_: Exception) {}
-                  }
               }
 
               private fun startAgentLoop() {
@@ -1010,30 +853,35 @@ jobs:
                                           val cmd = m?.toString()?.trim() ?: return
                                           when (cmd) {
                                               "RESET_COUNTERS" -> {
-                                                  saveDrinks(mutableListOf())
-                                                  prefs().edit()
-                                                      .remove("last_sale_name")
-                                                      .remove("last_sale_price")
-                                                      .remove("last_sale_at")
-                                                      .apply()
+                                                  prefs().edit().remove("drinks_json").apply()
                                                   sendHeartbeat()
                                               }
                                               "REQUEST_UPDATE" -> sendHeartbeat()
                                               "REBOOT_MACHINE" -> try { Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot")) } catch (_: Exception) {}
+                                              "FLUSH" -> {
+                                                  try {
+                                                      Runtime.getRuntime().exec(arrayOf("su", "-c", "am start -n com.le.vmcoffeestandard/com.le.vmcoffeeen.mvp.ui.activity.CoffeeTestActivity"))
+                                                  } catch (_: Exception) {}
+                                              }
+                                              "TOGGLE_LOCK" -> {
+                                                  try {
+                                                      Runtime.getRuntime().exec(arrayOf("su", "-c", "am start -n com.le.vmcoffeestandard/com.le.vmcoffeeen.mvp.ui.activity.SettingActivity"))
+                                                  } catch (_: Exception) {}
+                                              }
                                               "SCAN_LOGS" -> {
                                                   commandExecutor.execute {
                                                       try {
-                                                          val ackMsg = "⏳ Автомат [$sn]: собираю и упаковываю логи, подождите..."
+                                                          val ackMsg = "⏳ Автомат [$sn]: выгружаю данные из coffeeNet.db..."
                                                           client?.publish("cofferno/$sn/logs", MqttMessage(ackMsg.toByteArray(Charsets.UTF_8)).apply { qos = 0 })
 
                                                           val rawLogs = LeVendingProbe.fullScan(this@AgentService)
                                                           val capped = if (rawLogs.length > 3800) {
-                                                              rawLogs.substring(0, 3700) + "\n\n[Внимание! Часть логов обрезана для бесперебойной передачи]"
+                                                              rawLogs.substring(0, 3700) + "\n\n[Отчет сокращен для быстрой передачи]"
                                                           } else rawLogs
 
                                                           client?.publish("cofferno/$sn/logs", MqttMessage(capped.toByteArray(Charsets.UTF_8)).apply { qos = 0 })
                                                       } catch (ex: Exception) {
-                                                          val err = "Ошибка сбора логов на автомате: ${ex.message}"
+                                                          val err = "Ошибка сбора отчета: ${ex.message}"
                                                           try {
                                                               client?.publish("cofferno/$sn/logs", MqttMessage(err.toByteArray(Charsets.UTF_8)).apply { qos = 0 })
                                                           } catch (_: Exception) {}
@@ -1058,11 +906,11 @@ jobs:
                   try {
                       if (client?.isConnected != true) return
                       val sn = getMachineSerial()
-                      val p = prefs()
-                      val pkt = TelemetryPacket(sn, 93.4, 9.2, "В норме", loadDrinks(),
-                          resolveDeviceId(), p.getString("last_sale_name", "") ?: "",
-                          p.getInt("last_sale_price", 0), p.getLong("last_sale_at", 0L))
-                      // ФИКС КЭШИРОВАНИЯ: Сброшен флаг retained в false. Телеметрия передается строго в реальном времени!
+                      val drinks = loadDrinks()
+                      val lastDrink = drinks.firstOrNull { it.count > 0 } ?: drinks.firstOrNull()
+                      val pkt = TelemetryPacket(sn, 93.4, 9.2, "В норме", drinks,
+                          resolveDeviceId(), lastDrink?.name ?: "",
+                          lastDrink?.price ?: 0, System.currentTimeMillis())
                       client!!.publish("cofferno/$sn/data", MqttMessage(gson.toJson(pkt).toByteArray(Charsets.UTF_8)).apply { qos = 0; isRetained = false })
                   } catch (_: Exception) {}
               }
@@ -1225,7 +1073,7 @@ jobs:
 
                   findViewById<Button>(R.id.btn_remote_scan_logs).setOnClickListener {
                       if (currentSerial.isEmpty()) { Toast.makeText(this, "Выберите автомат из списка!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-                      tvRemoteL.text = "⏳ Запрос отправлен...\nОжидаем формирования отчета на автомате [$currentSerial]..."
+                      tvRemoteL.text = "⏳ Запрос отправлен...\nОжидаем выгрузки coffeeNet.db с автомата [$currentSerial]..."
                       tvRemoteL.scrollTo(0, 0)
                       cmd(currentSerial, "SCAN_LOGS")
                   }
@@ -1235,7 +1083,7 @@ jobs:
                       if (txt.isNotBlank()) {
                           val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                           cm.setPrimaryClip(ClipData.newPlainText("Cofferno Remote Logs", txt))
-                          Toast.makeText(this, "Логи скопированы!", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "Отчет скопирован!", Toast.LENGTH_SHORT).show()
                       }
                   }
 
@@ -1245,7 +1093,7 @@ jobs:
                   findViewById<Button>(R.id.btn_reset_counters).setOnClickListener {
                       if (currentSerial.isEmpty()) { Toast.makeText(this, "Выберите автомат!", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
                       AlertDialog.Builder(this).setTitle("Сброс счётчиков")
-                          .setMessage("Полностью очистить статистику продаж на автомате [$currentSerial]?")
+                          .setMessage("Очистить кэш статистики на автомате [$currentSerial]?")
                           .setPositiveButton("Да") { _, _ -> cmd(currentSerial, "RESET_COUNTERS"); packets.remove(currentSerial); lastSeenMap.remove(currentSerial); renderSales(); renderCostsFromAll() }
                           .setNegativeButton("Отмена", null).show()
                   }
@@ -1280,7 +1128,7 @@ jobs:
                   }
 
                   findViewById<Button>(R.id.btn_scan_coffeenet).setOnClickListener {
-                      tvL.text = "Идет сканирование логов..."; tvL.scrollTo(0, 0)
+                      tvL.text = "Идет анализ coffeeNet.db на автомате..."; tvL.scrollTo(0, 0)
                       Executors.newSingleThreadExecutor().execute {
                           val r = LeVendingProbe.fullScan(this@MainActivity)
                           runOnUiThread { tvL.text = r; tvL.scrollTo(0, 0); refreshDevUi() }
@@ -1425,7 +1273,7 @@ jobs:
                                                           tvRemoteL.text = payload
                                                           tvRemoteL.scrollTo(0, 0)
                                                           if (!payload.startsWith("⏳")) {
-                                                              Toast.makeText(this@MainActivity, "Логи получены!", Toast.LENGTH_SHORT).show()
+                                                              Toast.makeText(this@MainActivity, "Отчет БД получен!", Toast.LENGTH_SHORT).show()
                                                           }
                                                       }
                                                   }
@@ -1434,7 +1282,6 @@ jobs:
                                                   val pSn = p.serial.trim().lowercase()
                                                   packets[pSn] = p
                                                   
-                                                  // ФИКС ОНЛАЙНА: Отмечаем автомат "активным" только если сообщение свежее (не пришло из кэша брокера)
                                                   if (message != null && !message.isRetained) {
                                                       lastSeenMap[pSn] = System.currentTimeMillis()
                                                   }
@@ -1487,7 +1334,7 @@ jobs:
                   }
 
                   if (pk.isEmpty() || pk.all { it.drinks.isEmpty() }) {
-                      dc.addView(TextView(this).apply { text = "Продаж пока нет. Включите службу агента на автомате и дождитесь первой выдачи напитка."; setTextColor(col(R.color.muted)); textSize = 13f })
+                      dc.addView(TextView(this).apply { text = "Продаж пока нет. Включите службу агента на автомате и дождитесь синхронизации coffeeNet.db."; setTextColor(col(R.color.muted)); textSize = 13f })
                       findViewById<TextView>(R.id.tv_total_revenue).text = "0 ₽"
                       findViewById<TextView>(R.id.tv_total_profit).text = "0 ₽"
                       findViewById<TextView>(R.id.tv_total_cups).text = "Стаканов: 0 шт."
@@ -1581,7 +1428,7 @@ jobs:
           RESPONSE=$(curl -s -X POST \
             -F chat_id="$CHAT_ID" \
             -F document=@"$APK" \
-            -F caption="☕ Cofferno LV-307 v7.4.7 (Сборка $(date +'%d.%m %H:%M'))" \
+            -F caption="☕ Cofferno LV-307 v7.5.1 (Сборка $(date +'%d.%m %H:%M'))" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument")
           echo "$RESPONSE"
           if echo "$RESPONSE" | grep -q '"ok":true'; then echo "✅ Sent!"; else echo "::error::Telegram failed"; exit 1; fi
@@ -1600,13 +1447,13 @@ jobs:
                   lines = f.readlines()
               err = [l for l in lines if any(k in l for k in ["e: ", "FAILURE:", "What went wrong", "error:"])]
               log = "".join(err[-50:] if err else lines[-60:])
-          text = f"❌ Сборка Cofferno v7.4.7 завершилась ошибкой\n\n{log}"[:4000]
+          text = f"❌ Сборка Cofferno v7.5.1 завершилась ошибкой\n\n{log}"[:4000]
           token = os.environ.get("BOT_TOKEN", "")
           chat = os.environ.get("CHAT_ID", "")
           if token and chat:
               data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
               try:
-                  urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+                  urllib.request.urlopen(f"https://api.telegram.org/bot${token}/sendMessage", data=data)
               except Exception as e:
                   print(f"Telegram error: {e}")
           PY
